@@ -29,120 +29,74 @@
 #include <vector>
 
 using namespace std;
-/*
-Variable names:
-t ------------> error correcting capability
-lenght -------> codeword length = 48
-alpha_to ----->
-index_of ----->
-g ------------>
-recd --------->
-data ---------> 36 space array of data
-bb ----------->
-numerr ------->
-errpos ------->
-decerror ----->
-seed --------->
-n ------------>
-m ------------> 
-k ------------> data length = 36
-d ------------>
-p ------------>
-*/
 
 int m = 6, n = 63, k = 36, t = 2, d = 5;
 int	length = 48;
 int p[7]; //irreducible polynomial 
 int alpha_to[64], index_of[64], g[13];
-int recd[48], data[36], bb[13];
+int recd[48], _data[36], bb[13];
 int numerr, errpos[64], decerror = 0;
 int seed;
 
-
-void read_p()
-/* Primitive polynomial of degree 6 */
-{
+void read_p(){
+// Primitive polynomial of degree 6 
     p[0] = p[1] = p[6] = 1;
     p[2] = p[3] = p[4] = p[5] =0;
 }
 
-
-void generate_gf()
+void generate_gf() {
 /*
- * generate GF(pow(2, m)) ((2**m)) from the irreducible polynomial p(X) in p[0]..p[m]
- * lookup tables:  index->polynomial form   alpha_to[] contains j=alpha**i;
- * polynomial form -> index form  index_of[j=alpha**i] = i alpha=2 is the
- * primitive element of GF(2**m) 
- */
-{
-	int i, mask = 1;
-	alpha_to[m] = 0;
-	for (i = 0; i < m; i++) {
+	generate GF(pow(2, m)) ((2**m)) from the irreducible polynomial p(X) in p[0]..p[m]
+	lookup tables:  index->polynomial form   alpha_to[] contains j=alpha**i;
+	polynomial form -> index form  index_of[j=alpha**i] = i alpha=2 is the
+	primitive element of GF(2**m) 
+*/
+	int mask = 1;
+	alpha_to[m] = 0; //m = 6
+	for (int i = 0; i < m; i++) {
 		alpha_to[i] = mask;
 		index_of[alpha_to[i]] = i;
 		if (p[i] != 0)
 			alpha_to[m] ^= mask;
 		mask <<= 1;
-        cout<<"alpha_to"<<alpha_to[i]<<endl;
-		cout<<"index_of[alpha_to[i]]"<<index_of[alpha_to[i]]<<endl;
 	}
 	index_of[alpha_to[m]] = m;
 	mask >>= 1;
-	for (i = m + 1; i < n; i++) {
+	for (int i = m + 1; i < n; i++) {
 		if (alpha_to[i - 1] >= mask)
 		  alpha_to[i] = alpha_to[m] ^ ((alpha_to[i - 1] ^ mask) << 1);
 		else
 		  alpha_to[i] = alpha_to[i - 1] << 1;
 		index_of[alpha_to[i]] = i;
-        cout<<"alpha "<<alpha_to[i]<<endl;
 	}
 	index_of[0] = -1;
 }
 
-void gen_poly()
-/* 
- * Compute generator polynomial of BCH code of length = 48, redundancy = 12
- * (OK, this is not very efficient, but we only do it once, right? :)
- */
-{
-    int ii, jj, ll, kaux;
-	int test, aux, nocycles, root, noterms, rdncy;
-	int cycle[13][7], size[13], min[13], zeros[13];
-	/* Generate cycle sets modulo 63 */
-	cycle[0][0] = 0; size[0] = 1;
-	cycle[1][0] = 1; size[1] = 1;
-	jj = 1;			/* cycle set index */
-	do {
+
+
+void gen_poly() {
+/*  
+	Compute generator polynomial of BCH code of length = 48, redundancy = 12
+	(OK, this is not very efficient, but we only do it once, right? :)
+*/
+    int jj, cycle[13][7] = {0}, size[13] = {0}, min[13] = {0}, zeros[13] = {0}; //arrays of zeros
+	vector <int> list_of_first_indexes  = {1, 3, 5, 7, 9, 11, 13, 15, 21, 23, 27, 31, 0}; //without 0 
+	// Generate cycle sets modulo 63 
+	for (jj = 0; jj <= 12; ++jj) {
 		/* Generate the jj-th cycle set */
-		ii = 0;
-		do {
-			ii++;
-			cycle[jj][ii] = (cycle[jj][ii - 1] * 2) % n;
+		for (int ii = 0; ; ii++) {
+			if (ii == 0)
+				cycle[jj][ii] = list_of_first_indexes[jj - 1];
+			else
+				cycle[jj][ii] = ((cycle[jj][ii - 1] *2) % n);
 			size[jj]++;
-			aux = (cycle[jj][ii] * 2) % n;
-		} while (aux != cycle[jj][0]);
-		/* Next cycle set representative */
-		ll = 0;
-		do {
-			ll++;
-			test = 0;
-			for (ii = 1; ((ii <= jj) && (!test)); ii++)	
-			/* Examine previous cycle sets */
-			  for (kaux = 0; ((kaux < size[ii]) && (!test)); kaux++)
-					if (ll == cycle[ii][kaux])
-						test = 1;
-		} while ((test) && (ll < (n - 1)));
-		if (!(test)) {
-			jj++;	/* next cycle set index */
-			cycle[jj][0] = ll;
-			size[jj] = 1;
-		}
-	} while (ll < (n - 1));
-	nocycles = jj;		/* number of cycle sets modulo n */
-	/* Search for roots 1, 2, ..., d-1 in cycle sets */
-	kaux = 0;
-	rdncy = 0;
-	for (ii = 1; ii <= nocycles; ii++) {
+			if (cycle[jj][0] == (cycle[jj][ii] * 2 ) % n)
+				break;
+		}				
+	}
+	int kaux = 0, root = 0, rdncy = 0, numcycles = jj; // number of cycle sets modulo n (jj = 12), kaux???
+	// Search for roots 1, 2, ..., d-1 in cycle se ts (d = 5)
+	for (int ii = 1; ii <= numcycles; ii++) {
 		min[kaux] = 0;
 		for (jj = 0; jj < size[ii]; jj++)
 			for (root = 1; root < d; root++)
@@ -153,18 +107,18 @@ void gen_poly()
 			kaux++;
 		}
 	}
-	noterms = kaux;
+	int numterms = kaux;
 	kaux = 1;
-	for (ii = 0; ii < noterms; ii++)
+	for (int ii = 0; ii < numterms; ii++)
 		for (jj = 0; jj < size[min[ii]]; jj++) {
 			zeros[kaux] = cycle[min[ii]][jj];
 			kaux++;
 		}
-	printf("This is a (%d, %d, %d) binary BCH code\n", length, k, d);
-	/* Compute generator polynomial */
+	cout<<"This is a ("<<length<<","<<k<<","<<d<<") binary BCH code"<<endl;
+	// Compute generator polynomial 
 	g[0] = alpha_to[zeros[1]];
-	g[1] = 1;		/* g(x) = (X + zeros[1]) initially */
-	for (ii = 2; ii <= rdncy; ii++) {
+	g[1] = 1;		// g(x) = (X + zeros[1]) initially
+	for (int ii = 2; ii <= rdncy; ii++) {
 	  g[ii] = 1;
 	  for (jj = ii - 1; jj > 0; jj--)
 	    if (g[jj] != 0)
@@ -173,27 +127,24 @@ void gen_poly()
 	      g[jj] = g[jj - 1];
 	  g[0] = alpha_to[(index_of[g[0]] + zeros[ii]) % n];
 	}
-	printf("g(x) = ");
-	for (ii = 0; ii <= rdncy; ii++) {
-	  printf("%d", g[ii]);
-	  if (ii && ((ii % 70) == 0))
-	    printf("\n");
+	cout<<"g(x) = ";
+	for (int ii = 0; ii <= rdncy; ii++) {
+	  cout<<g[ii];
 	}
-	printf("\n");
+	cout<<endl;
 }
 
 
-void encode_bch()
+void encode_bch() {
 /* 
- * Calculate redundant bits bb[], codeword is c(X) = data(X)*X**(n-k)+ bb(X)
- */
-{
-	register int    i, j;
-	register int    feedback;
+	Calculate redundant bits bb[], codeword is c(X) = _data(X)*X**(n-k)+ bb(X)
+*/
+	int i, j;
+	int feedback;
 	for (i = 0; i < length - k; i++)
 		bb[i] = 0;
 	for (i = k - 1; i >= 0; i--) {
-		feedback = data[i] ^ bb[length - k - 1];
+		feedback = _data[i] ^ bb[length - k - 1];
 		if (feedback != 0) {
 			for (j = length - k - 1; j > 0; j--)
 				if (g[j] != 0)
@@ -205,51 +156,52 @@ void encode_bch()
 			for (j = length - k - 1; j > 0; j--)
 				bb[j] = bb[j - 1];
 			bb[0] = 0;
-		};
-	};
-};
+		}
+	}
+}
 
 
-void decode_bch()
+void decode_bch() {
 /*
- * We do not need the Berlekamp algorithm to decode.
- * We solve before hand two equations in two variables.
- */
-{
-	int    i, j, q;
-	int             elp[3], s[5], s3;
-	int             count = 0, syn_error = 0;
-	int             loc[3], err[3], reg[3];
-	int				aux;
-	/* first form the syndromes */
-	printf("s[] = (");
+	We do not need the Berlekamp algorithm to decode.
+	We solve before hand two equations in two variables.
+*/
+	int i, j, q;
+	int elp[3] = {0}, s[5] = {0}, s3;
+	int count = 0, syn_error = 0;
+	int loc[3] = {0}, err[3] = {0}, reg[3] = {0};
+	int	aux;
+	// first form the syndromes 
+	cout<<endl<<"s[] = (";
 	for (i = 1; i <= 4; i++) {
 		s[i] = 0;
 		for (j = 0; j < length; j++)
 			if (recd[j] != 0)
 				s[i] ^= alpha_to[(i * j) % n];
 		if (s[i] != 0)
-			syn_error = 1;	/* set flag if non-zero syndrome */
-							/* NOTE: If only error detection is needed,
-							 * then exit the program here...
-							 */
-		/* convert syndrome from polynomial form to index form  */
+			syn_error = 1;	/* set flag if non-zero syndrome 
+								NOTE: If only error detection is needed,
+								then exit the program here...
+							*/
+		// convert syndrome from polynomial form to index form  
 		s[i] = index_of[s[i]];
-		printf("%3d ", s[i]);
-	};
-	printf(")\n");
-	if (syn_error) {	/* If there are errors, try to correct them */
+		if (i<4)
+			cout<<s[i]<<"  ";
+		else
+			cout<<s[i]<<")"<<endl;
+	}
+	if (syn_error) {	// If there are errors, try to correct them 
 		if (s[1] != -1) {
 			s3 = (s[1] * 3) % n;
-			if ( s[3] == s3 )  /* Was it a single error ? */
+			if ( s[3] == s3 )  // Was it a single error ? 
 				{
-				printf("One error at %d\n", s[1]);
-				recd[s[1]] ^= 1;		/* Yes: Correct it */
+				cout<<endl<<"One error at "<<s[1];
+				recd[s[1]] ^= 1;		// Yes: Correct it 
 				}
 			else {				/* Assume two errors occurred and solve
-								 * for the coefficients of sigma(x), the
-								 * error locator polynomail
-								 */
+									for the coefficients of sigma(x), the
+									error locator polynomail
+								*/
                 if (s[3] != -1)
                   aux = alpha_to[s3] ^ alpha_to[s[3]];
                 else
@@ -258,105 +210,103 @@ void decode_bch()
 				elp[0] = 0;
 				elp[1] = (s[2] - index_of[aux] + n) % n;
 				elp[2] = (s[1] - index_of[aux] + n) % n;
-				printf("sigma(x) = ");
+				cout<<"Sigma(x) = ";
 				for (i = 0; i <= 2; i++)
-					printf("%3d ", elp[i]);
-				printf("\n");
-				printf("Roots: ");
-				/* find roots of the error location polynomial */
+					cout<<elp[i]<<" ";
+				cout<<endl<<"Roots: ";
+				// find roots of the error location polynomial 
 				for (i = 1; i <= 2; i++)
 					reg[i] = elp[i];
 				count = 0;
-				for (i = 1; i <= 63; i++) { /* Chien search */
+				for (i = 1; i <= 63; i++) { // Chien search 
 					q = 1;
 					for (j = 1; j <= 2; j++)
 						if (reg[j] != -1) {
 							reg[j] = (reg[j] + j) % n;
 							q ^= alpha_to[reg[j]];
 						}
-					if (!q) {	/* store error location number indices */
+					if (!q) {	// store error location number indices 
 						loc[count] = i % n;
 						count++;
-						printf("%3d ", (i%n));
+						cout<<(i%n)<<" ";
 					}
 				}
-				printf("\n");
 				if (count == 2)	
-				/* no. roots = degree of elp hence 2 errors */
+				// no. roots = degree of elp hence 2 errors 
 					for (i = 0; i < 2; i++)
 						recd[loc[i]] ^= 1;
-				else	/* Cannot solve: Error detection */
-					printf("incomplete decoding\n");
+				else	// Cannot solve: Error detection 
+					cout<<endl<<"Incomplete decoding";
 				}
 			}
-		else if (s[2] != -1) /* Error detection */
-			printf("incomplete decoding\n");
+		else if (s[2] != -1) // Error detection 
+			cout<<endl<<"Incomplete decoding";
 	}
 }
 
-
 int main() {
-
 	int i;
-	read_p();				/* read generator polynomial g(x) */
-	generate_gf();			/* generate the Galois Field GF(2**m) */
-	gen_poly();				/* Compute the generator polynomial of BCH code */
+	read_p();		// read generator polynomial g(x) 
+	generate_gf();	// generate the Galois Field GF(2**m) 
+	gen_poly();		// Compute the generator polynomial of BCH code 
 
 	seed = 1;
 	srandom(seed);
-	/* Randomly generate DATA */
+	// Randomly generate _data 
 	for (i = 0; i < k; i++)
-		data[i] = (random() & 67108864) >> 26;
+		_data[i] = (random() & 67108864) >> 26;
 
-	/* ENCODE */
-	encode_bch();			/* encode data */
+	// ENCODE 
+	encode_bch();	// encode _data 
  
 	for (i = 0; i < length - k; i++)
-		recd[i] = bb[i];	/* first (length-k) bits are redundancy */
+		recd[i] = bb[i];	// first (length-k) bits are redundancy 
 	for (i = 0; i < k; i++)
-		recd[i + length - k] = data[i];	/* last k bits are data */
-	printf("c(x) = ");
+		recd[i + length - k] = _data[i];	// last k bits are _data 
+	cout<<"c(x) = ";
 	for (i = 0; i < length; i++) {
-		printf("%1d", recd[i]);
-		if (i && ((i % 70) == 0))
-			printf("\n");
+		cout<<recd[i];
 	}
-	printf("\n");
 
-	/* ERRORS */
-    printf("Enter the number of errors and their positions: ");
-    scanf("%d", &numerr);
-	for (i = 0; i < numerr; i++)
-		{
-		scanf("%d", &errpos[i]);
+	// ERRORS
+    cout<<endl<<"Enter the number of errors (this program can fix only two errors): "<<endl;
+    cin>>numerr;
+	while (numerr < 1 || numerr > 10) {
+			cout<<"Wrong number of errors:"<<endl;
+			cin>>numerr;
+	} 
+	cout<<"Enter the position of errors: "<<endl;
+	for (i = 0; i < numerr; i++) {
+		cin>>errpos[i];
+		while (errpos[i] < 0 || errpos[i] > 36) {
+			cout<<"Wrong error position (choose a number between 0 and 36):"<<endl;
+			cin>>errpos[i];
+		} 
 		recd[errpos[i]] ^= 1;
-		}
-	printf("r(x) = ");
+	}
+	cout<<"r(x) = ";
 	for (i = 0; i < length; i++)
-		printf("%1d", recd[i]);
-	printf("\n");
+		cout<<recd[i];
 
-    /* DECODE */
+    // DECODE
 	decode_bch();
 	/*
-	 * print out original and decoded data
-	 */
-	printf("Results:\n");
-	printf("original data  = ");
+	  print out original and decoded _data
+	*/
+	cout<<endl<<"Results: "<<endl;
+	cout<<"Original _data  = ";
 	for (i = 0; i < k; i++)
-		printf("%1d", data[i]);
-	printf("\nrecovered data = ");
+		cout<<_data[i];
+	cout<<endl<<"Recovered _data = ";
 	for (i = length - k; i < length; i++)
-		printf("%1d", recd[i]);
-	printf("\n");
-	/* decoding errors: we compare only the data portion */
+		cout<<recd[i];
+	/* decoding errors: we compare only the _data portion */
 	for (i = length - k; i < length; i++)
-		if (data[i - length + k] != recd[i])
+		if (_data[i - length + k] != recd[i])
 			decerror++;
 	if (decerror)
-		printf("%d message decoding errors\n", decerror);
+		cout<<endl<<decerror<<" Message decoding errors"<<endl;
 	else
-		printf("Succesful decoding\n");
-        
+		cout<<endl<<"Succesful decoding"<<endl;
     return 0;
 }
