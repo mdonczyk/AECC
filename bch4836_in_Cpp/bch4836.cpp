@@ -25,7 +25,7 @@
 // ------------------------------------------------------------------------
 
 #include <iostream>
-#include <cmath>
+#include <algorithm>
 #include <vector>
 
 using namespace std;
@@ -77,59 +77,67 @@ void generate_gf() {
 void gen_poly() {
 /*  
 	Compute generator polynomial of BCH code of length = 48, redundancy = 12
-	(OK, this is not very efficient, but we only do it once, right? :)
 */
-    int jj, cycle[13][7] = {0}, size[13] = {0}, min[13] = {0}, zeros[13] = {0}; //arrays of zeros
-	vector <int> list_of_first_indexes  = {1, 3, 5, 7, 9, 11, 13, 15, 21, 23, 27, 31, 0}; //without 0 
-	// Generate cycle sets modulo 63 
-	for (jj = 0; jj <= 12; ++jj) {
-		/* Generate the jj-th cycle set */
-		for (int ii = 0; ; ii++) {
-			if (ii == 0)
-				cycle[jj][ii] = list_of_first_indexes[jj - 1];
+	vector <vector <int>> cycle_coset;
+	vector <int> allnumbers, zeros, temp_coset_index;
+	vector <int>::iterator it;
+
+	// Generate cycle sets modulo 63
+	for (int i = 0, j; i <= 31; i++){
+		for (j = 0; ; j++){
+			if (j == 0)
+				temp_coset_index.push_back(i);
 			else
-				cycle[jj][ii] = ((cycle[jj][ii - 1] *2) % n);
-			size[jj]++;
-			if (cycle[jj][0] == (cycle[jj][ii] * 2 ) % n)
+				temp_coset_index.push_back((temp_coset_index[j - 1] *2 ) % n);
+			int last_element = temp_coset_index[j];
+			it = (find(allnumbers.begin(), allnumbers.end(), last_element));
+			if (it != allnumbers.end()){
+				temp_coset_index.clear();
 				break;
-		}				
-	}
-	int kaux = 0, root = 0, rdncy = 0, numcycles = jj; // number of cycle sets modulo n (jj = 12), kaux???
-	// Search for roots 1, 2, ..., d-1 in cycle se ts (d = 5)
-	for (int ii = 1; ii <= numcycles; ii++) {
-		min[kaux] = 0;
-		for (jj = 0; jj < size[ii]; jj++)
-			for (root = 1; root < d; root++)
-				if (root == cycle[ii][jj])
-					min[kaux] = ii;
-		if (min[kaux]) {
-			rdncy += size[min[kaux]];
-			kaux++;
+			}
+			allnumbers.push_back(last_element);
+			if (temp_coset_index[0] == (temp_coset_index[j] * 2 ) % n){
+				cycle_coset.push_back(temp_coset_index);
+				temp_coset_index.clear();
+				break;
+			}
 		}
 	}
-	int numterms = kaux;
-	kaux = 1;
-	for (int ii = 0; ii < numterms; ii++)
-		for (jj = 0; jj < size[min[ii]]; jj++) {
-			zeros[kaux] = cycle[min[ii]][jj];
-			kaux++;
+	allnumbers.clear();
+
+	int rdncy = 0, size = 0;	
+	// Search for roots 1, 2, ..., d-1 in cycle sets (d = 5)
+	for (const auto& index : cycle_coset){
+		for (const auto& second_index : index){
+			for (int root = 1; root < d; root++)
+				if (root == second_index)
+					size = index.size();
 		}
+		rdncy += size;
+		if(size != 0) {
+		//populate zeros with cosets that have roots 1 - d-1
+			for (const auto& second_index : index)
+				zeros.push_back(second_index);
+		}
+		size = 0;
+	}
+
 	cout<<"This is a ("<<length<<","<<k<<","<<d<<") binary BCH code"<<endl;
 	// Compute generator polynomial 
-	g[0] = alpha_to[zeros[1]];
-	g[1] = 1;		// g(x) = (X + zeros[1]) initially
-	for (int ii = 2; ii <= rdncy; ii++) {
-	  g[ii] = 1;
-	  for (jj = ii - 1; jj > 0; jj--)
-	    if (g[jj] != 0)
-	      g[jj] = g[jj - 1] ^ alpha_to[(index_of[g[jj]] + zeros[ii]) % n];
+	g[0] = alpha_to[zeros[0]];
+	g[1] = 1;		// g(x) = (X + zeros[0]) initially
+	for (int i = 2; i <= rdncy; i++) {
+	  g[i] = 1;
+	  for (int j = i - 1; j > 0; j--)
+	    if (g[j] != 0)
+	      g[j] = g[j - 1] ^ alpha_to[(index_of[g[j]] + zeros[i-1]) % n];
 	    else
-	      g[jj] = g[jj - 1];
-	  g[0] = alpha_to[(index_of[g[0]] + zeros[ii]) % n];
+	      g[j] = g[j - 1];
+	  g[0] = alpha_to[(index_of[g[0]] + zeros[i-1]) % n];
 	}
 	cout<<"g(x) = ";
-	for (int ii = 0; ii <= rdncy; ii++) {
-	  cout<<g[ii];
+	for (int i = 0; i <= rdncy; i++) {
+	  cout<<g[i];
 	}
 	cout<<endl;
 }
@@ -195,7 +203,7 @@ void decode_bch() {
 			s3 = (s[1] * 3) % n;
 			if ( s[3] == s3 )  // Was it a single error ? 
 				{
-				cout<<endl<<"One error at "<<s[1];
+				cout<<"One error at "<<s[1];
 				recd[s[1]] ^= 1;		// Yes: Correct it 
 				}
 			else {				/* Assume two errors occurred and solve
@@ -244,6 +252,13 @@ void decode_bch() {
 	}
 }
 
+bool check_input(int input, int boundry_1, int boundry_2){
+	if (input < boundry_1 || input > boundry_2){
+		return true;
+	}
+	return false;
+}
+
 int main() {
 	int i;
 	read_p();		// read generator polynomial g(x) 
@@ -271,14 +286,15 @@ int main() {
 	// ERRORS
     cout<<endl<<"Enter the number of errors (this program can fix only two errors): "<<endl;
     cin>>numerr;
-	while (numerr < 1 || numerr > 10) {
-			cout<<"Wrong number of errors:"<<endl;
-			cin>>numerr;
-	} 
+	while (check_input(numerr, 1, 10)){
+		cout<<"Wrong number of errors:"<<endl;
+		cin>>numerr;
+	}
+
 	cout<<"Enter the position of errors: "<<endl;
 	for (i = 0; i < numerr; i++) {
 		cin>>errpos[i];
-		while (errpos[i] < 0 || errpos[i] > 36) {
+		while (check_input(errpos[i], 0, 36)){
 			cout<<"Wrong error position (choose a number between 0 and 36):"<<endl;
 			cin>>errpos[i];
 		} 
