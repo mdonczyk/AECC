@@ -4,6 +4,7 @@
 #include <bitset>
 #include <bit>
 #include <time.h>
+#include <string.h>
 
 using namespace std;
 
@@ -146,7 +147,44 @@ class BCH_code{
 			cin.ignore(numeric_limits<streamsize>::max(), '\n');
 		}
 
-		private:
+		void user_input(){
+			cout<<endl<<"Enter the number of errors (choose a number between 1 and 10): "<<endl;
+			cin>>numerr;
+			while (check_bad_input(numerr, 1, 10)){
+				if (!cin){
+					cout <<"Please enter an integer"<<endl;
+					cin_clean();
+				}
+				else{
+					cout<<"Wrong number of errors"<<endl;
+					cin_clean();
+				}
+				cin>>numerr;
+			}
+			cout<<"Enter the position of errors (choose a number between 0 and 62): "<<endl;
+			int error_position;
+			bool cin_check = false;
+			for (int i = 0; i < numerr; i++) {
+				cout<<"Position "<<i+1<<":"<<endl;
+				cin>>error_position;
+				while (!cin_check){
+					if (!cin){ //we have to check it like that because if cin reads a character instead of integer it fails and the 
+						cout<<"Please enter integer"<<endl;  //error_position will get the value of 0 which will make the while loop break
+						cin_clean();
+						cin>>error_position;
+					} else if(check_bad_input(error_position, 0, 62)){
+					cout<<"Wrong error position"<<endl;
+					cin_clean();
+					cin>>error_position;
+					} else
+					cin_check = true;
+				}
+				errpos.push_back(error_position);
+				recd[error_position] ^= 1;
+			}
+		}
+
+	private:
 		void read_p(){
 		// Primitive polynomial of degree 6 - 1000011
 			p[0] = p[1] = p[6] = 1;
@@ -328,6 +366,7 @@ class BCH_code{
 
 int main() {
 	char run_program = 'y';
+	bool error_pos_show [63] = {false};
 	BCH_code entity;
 	while(run_program == 'y'){
 		int seed = time(NULL);
@@ -345,48 +384,14 @@ int main() {
 			recd[i] = bb[i];	// first (length-k) bits are redundancy 
 		for (int i = 0; i < k; i++)
 			recd[i + length - k] = _data[i];	// last k bits are _data 
-		cout<<"c(x) = ";
-		for (int i = 0; i < length; i++) {
-			cout<<recd[i];
+		for (int i = 0; i < length; i++) {  //get codemessage
 			c[i] = recd[i];
 		}
 
 		// ERRORS
-		cout<<endl<<"Enter the number of errors (choose a number between 1 and 10): "<<endl;
-		cin>>numerr;
-		while (entity.check_bad_input(numerr, 1, 10)){
-			if (!cin){
-				cout <<"Please enter an integer"<<endl;
-				entity.cin_clean();
-			}
-			else{
-				cout<<"Wrong number of errors"<<endl;
-				entity.cin_clean();
-			}
-			cin>>numerr;
-		}
-		cout<<"Enter the position of errors (choose a number between 0 and 62): "<<endl;
-		int error_position;
-		bool cin_check = false;
-		for (int i = 0; i < numerr; i++) {
-			cout<<"Position "<<i+1<<":"<<endl;
-			cin>>error_position;
-			while (!cin_check){
-				if (!cin){ //we have to check it like that because if cin reads a character instead of integer it fails and the 
-					cout<<"Please enter integer"<<endl;  //error_position will get the value of 0 which will make the while loop break
-					entity.cin_clean();
-					cin>>error_position;
-				} else if(entity.check_bad_input(error_position, 0, 62)){
-				cout<<"Wrong error position"<<endl;
-				entity.cin_clean();
-				cin>>error_position;
-				} else
-				cin_check = true;
-			}
-			errpos.push_back(error_position);
-			recd[error_position] ^= 1;
-		}
-		cout<<"c(x) = ";
+		entity.user_input(); 
+		
+		cout<<endl<<"c(x) = ";
 		for (int i = 0; i < length; i++) {
 			cout<<c[i];
 		}
@@ -394,17 +399,20 @@ int main() {
 		for (int i = 0; i < length; i++)
 			cout<<recd[i];
 
-		char error_pos_show [63];
 		for (int i = 0; i < errpos.size(); i++){
-			error_pos_show[errpos[i]] = '^';
+			error_pos_show[errpos[i]] = true;
 		}
 		cout<<endl<<"error: ";
 		for (int i = 0; i <= 63; i++){
-			if (error_pos_show[i] == '^')
-				cout<<error_pos_show[i];
+			if (error_pos_show[i])
+				cout<<'^';
 			else
 				cout<<' ';
 		}
+		for (int i = 0; i < errpos.size(); i++){ //cleanout the array so that in another run we wont have leftover '^'
+			error_pos_show[errpos[i]] = false;
+		}
+		errpos.clear();
 
 		// DECODE
 		entity.decode_bch();
