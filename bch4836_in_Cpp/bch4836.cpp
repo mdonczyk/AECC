@@ -27,29 +27,102 @@
 #include <iostream>
 #include <algorithm>
 #include <vector>
+#include <bitset>
+#include <bit>
+#include <time.h>
 
 using namespace std;
 
-int m = 6, n = 63, k = 36, t = 2, d = 5;
-int	length = 48;
+int m = 6, n = 63, k = 51, t = 2, d = 5;
+int	length = 63;
 int p[7]; //irreducible polynomial 
-int alpha_to[64], index_of[64], g[13];
-int recd[48], _data[36], bb[13];
-int numerr, errpos[64], decerror = 0;
+int alpha_to[64] = {0}, index_of[64] = {0}; 
+int g[13] = {0}, c[63] = {0};
+int recd[63], _data[51], bb[13];
+int numerr, decerror = 0;
+vector <int> errpos;
 int seed;
 
 void read_p(){
-// Primitive polynomial of degree 6 
+// Primitive polynomial of degree 6 - 1000011
     p[0] = p[1] = p[6] = 1;
     p[2] = p[3] = p[4] = p[5] =0;
 }
-
 void generate_gf() {
 /*
-	generate GF(pow(2, m)) ((2**m)) from the irreducible polynomial p(X) in p[0]..p[m]
-	lookup tables:  index->polynomial form   alpha_to[] contains j=alpha**i;
-	polynomial form -> index form  index_of[j=alpha**i] = i alpha=2 is the
+	block length n = 63 --> 64-1  Gf(2**6)
+	generate GF(2**m) from the irreducible polynomial p(X) in p[0]..p[m]
+	lookup tables:  index->polynomial form   power_of_alpha[] contains j=alpha**i;
+	polynomial form -> index form  alpha[j=alpha**i] = i alpha=2 is the
 	primitive element of GF(2**m) 
+	
+					GF(64) : P(x) = x6 + x + 1 = 1000011
+index_of 						power_of_alpha										|  MINIMAL POLYNOMIAL
+a0	= 1	= 000001				= 1		= a63	= a126	= a189	...	 |  x+1
+a1	= a	= 000010				= 2		= a64	= a127	= a190	...	 |  x6+x+1  1000011
+a2	= a2	= 000100			= 4		= a65	= a128	= a191	...	 |  x6+x+1
+a3	= a3	= 001000			= 8		= a66	= a129	= a192	...	 |  x6+x4+x2+x+1 1010111
+a4	= a4	= 010000			= 16	= a67	= a130	= a193	...	 |  x6+x+1
+a5	= a5	= 100000			= 32	= a68	= a131	= a194	...	 |  x6+x5+x2+x+1
+a6	= a+1	= 000011			= 3		= a69	= a132	= a195	...	 |  x6+x4+x2+x+1
+a7	= a2+a	= 000110			= 6		= a70	= a133	= a196	...	 |  x6+x3+1
+a8	= a3+a2	= 001100			= 12	= a71	= a134	= a197	...	 |  x6+x+1
+a9	= a4+a3	= 011000			= 24	= a72	= a135	= a198	...	 |  x3+x2+1
+a10	= a5+a4	= 110000			= 48	= a73	= a136	= a199	...	 |  x6+x5+x2+x+1
+a11	= a5+a+1	= 100011		= 35	= a74	= a137	= a200	...	 |  x6+x5+x3+x2+1
+a12	= a2+1	= 000101			= 5		= a75	= a138	= a201	...	 |  x6+x4+x2+x+1
+a13	= a3+a	= 001010			= 10	= a76	= a139	= a202	...	 |  x6+x4+x3+x+1
+a14	= a4+a2	= 010100			= 20	= a77	= a140	= a203	...	 |  x6+x3+1
+a15	= a5+a3	= 101000			= 40	= a78	= a141	= a204	...	 |  x6+x5+x4+x2+1
+a16	= a4+a+1	= 010011		= 19	= a79	= a142	= a205	...	 |  x6+x+1
+a17	= a5+a2+a	= 100110		= 38	= a80	= a143	= a206	...	 |  x6+x5+x2+x+1
+a18	= a3+a2+a+1	= 001111		= 15	= a81	= a144	= a207	...	 |  x3+x2+1
+a19	= a4+a3+a2+a	= 011110	= 30	= a82	= a145	= a208	...	 |  x6+x4+x3+x+1
+a20	= a5+a4+a3+a2	= 111100	= 60	= a83	= a146	= a209	...	 |  x6+x5+x2+x+1
+a21	= a5+a4+a3+a+1	= 111011	= 59	= a84	= a147	= a210	...	 |  x2+x+1
+a22	= a5+a4+a2+1	= 110101	= 53	= a85	= a148	= a211	...	 |  x6+x5+x3+x2+1
+a23	= a5+a3+1	= 101001		= 41	= a86	= a149	= a212	...	 |  x6+x5+x4+x+1
+a24	= a4+1	= 010001			= 17	= a87	= a150	= a213	...	 |  x6+x4+x2+x+1
+a25	= a5+a	= 100010			= 34	= a88	= a151	= a214	...	 |  x6+x5+x3+x2+1
+a26	= a2+a+1	= 000111		= 7		= a89	= a152	= a215	...	 |  x6+x4+x3+x+1
+a27	= a3+a2+a	= 001110		= 14	= a90	= a153	= a216	...	 |  x3+x+1
+a28	= a4+a3+a2	= 011100		= 28	= a91	= a154	= a217	...	 |  x6+x3+1
+a29	= a5+a4+a3	= 111000		= 56	= a92	= a155	= a218	...	 |  x6+x5+x4+x+1
+a30	= a5+a4+a+1	= 110011		= 51	= a93	= a156	= a219	...	 |  x6+x5+x4+x2+1
+a31	= a5+a2+1	= 100101		= 37	= a94	= a157	= a220	...	 |  x6+x5+1
+a32	= a3+1	= 001001			= 9		= a95	= a158	= a221	...	 |  x6+x+1
+a33	= a4+a	= 010010			= 18	= a96	= a159	= a222	...	 |  x6+x4+x2+x+1
+a34	= a5+a2	= 100100			= 36	= a97	= a160	= a223	...	 |  x6+x5+x2+x+1
+a35	= a3+a+1	= 001011		= 11	= a98	= a161	= a224	...	 |  x6+x3+1
+a36	= a4+a2+a	= 010110		= 22	= a99	= a162	= a225	...	 |  x3+x2+1
+a37	= a5+a3+a2	= 101100		= 44	= a100	= a163	= a226	...	 |  x6+x5+x3+x2+1
+a38	= a4+a3+a+1	= 011011		= 27	= a101	= a164	= a227	...	 |  x6+x4+x3+x+1
+a39	= a5+a4+a2+a	= 110110	= 54	= a102	= a165	= a228	...	 |  x6+x5+x4+x2+1
+a40	= a5+a3+a2+a+1	= 101111	= 47	= a103	= a166	= a229	...	 |  x6+x5+x2+x+1
+a41	= a4+a3+a2+1	= 011101	= 29	= a104	= a167	= a230	...	 |  x6+x4+x3+x+1
+a42	= a5+a4+a3+a	= 111010	= 58	= a105	= a168	= a231	...	 |  x2+x+1
+a43	= a5+a4+a2+a+1	= 110111	= 55	= a106	= a169	= a232	...	 |  x6+x5+x4+x+1
+a44	= a5+a3+a2+1	= 101101	= 45	= a107	= a170	= a233	...	 |  x6+x5+x3+x2+1
+a45	= a4+a3+1	= 011001		= 25	= a108	= a171	= a234	...	 |  x3+x+1
+a46	= a5+a4+a	= 110010		= 50	= a109	= a172	= a235	...	 |  x6+x5+x4+x+1
+a47	= a5+a2+a+1	= 100111		= 39	= a110	= a173	= a236	...	 |  x6+x5+1
+a48	= a3+a2+1	= 001101		= 13	= a111	= a174	= a237	...	 |  x6+x4+x2+x+1
+a49	= a4+a3+a	= 011010		= 26	= a112	= a175	= a238	...	 |  x6+x3+1
+a50	= a5+a4+a2	= 110100		= 52	= a113	= a176	= a239	...	 |  x6+x5+x3+x2+1
+a51	= a5+a3+a+1	= 101011		= 43	= a114	= a177	= a240	...	 |  x6+x5+x4+x2+1
+a52	= a4+a2+1	= 010101		= 21	= a115	= a178	= a241	...	 |  x6+x4+x3+x+1
+a53	= a5+a3+a	= 101010		= 42	= a116	= a179	= a242	...	 |  x6+x5+x4+x+1
+a54	= a4+a2+a+1	= 010111		= 23	= a117	= a180	= a243	...	 |  x3+x+1
+a55	= a5+a3+a2+a	= 101110	= 46	= a118	= a181	= a244	...	 |  x6+x5+1
+a56	= a4+a3+a2+a+1	= 011111	= 31	= a119	= a182	= a245	...	 |  x6+x3+1
+a57	= a5+a4+a3+a2+a	= 111110	= 62	= a120	= a183	= a246	...	 |  x6+x5+x4+x2+1
+a58	= a5+a4+a3+a2+a+1 = 111111	= 63	= a121	= a184	= a247	...	 |  x6+x5+x4+x+1
+a59	= a5+a4+a3+a2+1	= 111101	= 61	= a122	= a185	= a248	...	 |  x6+x5+1
+a60	= a5+a4+a3+1	= 111001	= 57	= a123	= a186	= a249	...	 |  x6+x5+x4+x2+1
+a61	= a5+a4+1	= 110001		= 49	= a124	= a187	= a250	...	 |  x6+x5+1
+a62	= a5+1	= 100001			= 33	= a125	= a188	= a251	...	 |  x6+x5+1
+
+
 */
 	int mask = 1;
 	alpha_to[m] = 0; //m = 6
@@ -70,6 +143,11 @@ void generate_gf() {
 		index_of[alpha_to[i]] = i;
 	}
 	index_of[0] = -1;
+
+	// for (auto i : index_of){
+	// 	cout<<"index_of = "<<i<<endl;
+	// 	cout<<"alpha_to["<<i<<"] = "<<alpha_to[i]<<endl<<endl;
+	// }
 }
 
 
@@ -105,13 +183,15 @@ void gen_poly() {
 	}
 	allnumbers.clear();
 
-	int rdncy = 0, size = 0;	
+	int rdncy = 0, size = 0, roots_found = 0;	
 	// Search for roots 1, 2, ..., d-1 in cycle sets (d = 5)
 	for (const auto& index : cycle_coset){
 		for (const auto& second_index : index){
 			for (int root = 1; root < d; root++)
-				if (root == second_index)
+				if (root == second_index){
 					size = index.size();
+					roots_found++;
+				}
 		}
 		rdncy += size;
 		if(size != 0) {
@@ -120,6 +200,8 @@ void gen_poly() {
 				zeros.push_back(second_index);
 		}
 		size = 0;
+		if (roots_found == d-1)
+			break;
 	}
 
 	cout<<"This is a ("<<length<<","<<k<<","<<d<<") binary BCH code"<<endl;
@@ -252,57 +334,100 @@ void decode_bch() {
 	}
 }
 
-bool check_input(int input, int boundry_1, int boundry_2){
-	if (input < boundry_1 || input > boundry_2){
-		return true;
+bool check_bad_input(int input, int boundry_1, int boundry_2){
+	if (input >= boundry_1 && input <= boundry_2){
+		return false;
 	}
-	return false;
+	return true;
+}
+
+void cin_clean(){
+	cin.clear();
+	cin.ignore(numeric_limits<streamsize>::max(), '\n');
 }
 
 int main() {
-	int i;
+	int seed = time(NULL);
+	cout<<"Seed used: "<<seed<<endl;
+	srand(seed);
+
 	read_p();		// read generator polynomial g(x) 
 	generate_gf();	// generate the Galois Field GF(2**m) 
 	gen_poly();		// Compute the generator polynomial of BCH code 
 
-	seed = 1;
-	srandom(seed);
 	// Randomly generate _data 
-	for (i = 0; i < k; i++)
-		_data[i] = (random() & 67108864) >> 26;
+	for (int i = 0; i < k; i++)
+		_data[i] = (rand() % 2);
 
 	// ENCODE 
 	encode_bch();	// encode _data 
  
-	for (i = 0; i < length - k; i++)
+	for (int i = 0; i < length - k; i++)
 		recd[i] = bb[i];	// first (length-k) bits are redundancy 
-	for (i = 0; i < k; i++)
+	for (int i = 0; i < k; i++)
 		recd[i + length - k] = _data[i];	// last k bits are _data 
 	cout<<"c(x) = ";
-	for (i = 0; i < length; i++) {
+	for (int i = 0; i < length; i++) {
 		cout<<recd[i];
+		c[i] = recd[i];
 	}
 
 	// ERRORS
-    cout<<endl<<"Enter the number of errors (this program can fix only two errors): "<<endl;
+    cout<<endl<<"Enter the number of errors (choose a number between 1 and 10): "<<endl;
     cin>>numerr;
-	while (check_input(numerr, 1, 10)){
-		cout<<"Wrong number of errors:"<<endl;
+	while (check_bad_input(numerr, 1, 10)){
+		if (!cin){
+			cout <<"Please enter an integer"<<endl;
+			cin_clean();
+		}
+		else{
+			cout<<"Wrong number of errors"<<endl;
+			cin_clean();
+		}
 		cin>>numerr;
 	}
-
-	cout<<"Enter the position of errors: "<<endl;
-	for (i = 0; i < numerr; i++) {
-		cin>>errpos[i];
-		while (check_input(errpos[i], 0, 36)){
-			cout<<"Wrong error position (choose a number between 0 and 36):"<<endl;
-			cin>>errpos[i];
-		} 
-		recd[errpos[i]] ^= 1;
+	cout<<"Enter the position of errors (choose a number between 0 and 62): "<<endl;
+	int error_position;
+	bool cin_check = false;
+	for (int i = 0; i < numerr; i++) {
+		cout<<"Position "<<i+1<<":"<<endl;
+		cin>>error_position;
+		while (!cin_check){
+			if (!cin){ //we have to check it like that because if cin reads a character instead of integer it fails and the 
+				cout<<"Please enter integer"<<endl;  //error_position will get the value of 0 which will make the while loop break
+				cin_clean();
+				cin>>error_position;
+			} else if(check_bad_input(error_position, 0, 62)){
+			cout<<"Wrong error position"<<endl;
+			cin_clean();
+			cin>>error_position;
+			} else
+			cin_check = true;
+		}
+		errpos.push_back(error_position);
+		recd[error_position] ^= 1;
 	}
-	cout<<"r(x) = ";
-	for (i = 0; i < length; i++)
+	cout<<"c(x) = ";
+	for (int i = 0; i < length; i++) {
+		cout<<c[i];
+	}
+	cout<<endl<<"r(x) = ";
+	for (int i = 0; i < length; i++)
 		cout<<recd[i];
+
+	char error_pos_show [63];
+	for (int i = 0; i < errpos.size(); i++){
+		error_pos_show[errpos[i]] = '^';
+	}
+	cout<<endl<<"error: ";
+
+	for (int i = 0; i <= 63; i++){
+		if (error_pos_show[i] == '^')
+			cout<<error_pos_show[i];
+		else
+			cout<<' ';
+	}
+
 
     // DECODE
 	decode_bch();
@@ -311,13 +436,13 @@ int main() {
 	*/
 	cout<<endl<<"Results: "<<endl;
 	cout<<"Original _data  = ";
-	for (i = 0; i < k; i++)
+	for (int i = 0; i < k; i++)
 		cout<<_data[i];
 	cout<<endl<<"Recovered _data = ";
-	for (i = length - k; i < length; i++)
+	for (int i = length - k; i < length; i++)
 		cout<<recd[i];
 	/* decoding errors: we compare only the _data portion */
-	for (i = length - k; i < length; i++)
+	for (int i = length - k; i < length; i++)
 		if (_data[i - length + k] != recd[i])
 			decerror++;
 	if (decerror)
