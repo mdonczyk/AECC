@@ -9,14 +9,13 @@
 
 using namespace std;
 
-int m = 6, n = 63, k = 51, t = 2, d = 5, length = 63, prim_polynomial = 0, generator_polynomial = 0;
-int p[7];
+int m = 6, n = 63, k = 51, t = 2, d = 5, length = 63, prim_polynomial = 0;
+int p[7]; //irreducible polynomial 
 int alpha_to[64] = {0}, index_of[64] = {0}; 
-int c[63] = {0};
-int recD[63], Data[51], rb[12] = {0};
-vector <int> errpos, zeros, g;
-vector <vector <int>> zeros_deluxe;
+int g[13] = {0}, c[63] = {0};
+int recD[63], Data[51], rb[12];
 int numerr, decerror = 0;
+vector <int> errpos;
 
 class BCH_code{
 
@@ -31,51 +30,29 @@ class BCH_code{
 			cout <<"Count: "<< duration.count() << " microseconds" << endl;
 		}
 
-		void encode_bch() { //multiply message polynomial by generator polynomial --> c(x) = 
+		void encode_bch() {
 		/* 
-		  codeword is c(X) = Data(X)*X**(n-k)+ rb(X)1 length = 63, k = 51;
-		*/	
-			
-			for (const auto& data:Data)
-				cout<<data;
-			bitset <13> generator_polynomial_binary = generator_polynomial;
-			cout<<endl<<generator_polynomial_binary<<endl;
-			
-			long long result = 0;
-			long long generator_polynomial_deluxe = generator_polynomial;
-			for (int i=0; i<k; i++){
-				if (Data[i] == 1){
-					result ^= generator_polynomial_deluxe;
+			Calculate redundant bits rb[], codeword is c(X) = Data(X)*X**(n-k)+ rb(X)1
+		*/
+			int i, j;
+			int feedback;
+			for (i = 0; i < length - k; i++)
+				rb[i] = 0;
+			for (i = k - 1; i >= 0; i--) {
+				feedback = Data[i] ^ rb[length - k - 1];
+				if (feedback != 0) {
+					for (j = length - k - 1; j > 0; j--)
+						if (g[j] != 0)
+							rb[j] = rb[j - 1] ^ feedback;
+						else
+							rb[j] = rb[j - 1];
+					rb[0] = g[0] && feedback;
+				} else {
+					for (j = length - k - 1; j > 0; j--)
+						rb[j] = rb[j - 1];
+					rb[0] = 0;
 				}
-				generator_polynomial_deluxe <<= 1;
 			}
-			bitset <63> test = result;
-			cout<<test;
-
-
-			// int i, j, feedback;
-			// for (i = k - 1; i >= 0; i--) {
-			// 	feedback = Data[i] ^ rb[length - k - 1];
-			// 	if (feedback != 0) {
-			// 		for (j = length - k - 1; j > 0; j--)
-			// 			if (g[j] != 0)
-			// 				rb[j] = rb[j - 1] ^ feedback;
-			// 			else
-			// 				rb[j] = rb[j - 1];
-			// 		rb[0] = g[0] && feedback;
-			// 	} else {
-			// 		for (j = length - k - 1; j > 0; j--)
-			// 			rb[j] = rb[j - 1];
-			// 		rb[0] = 0;
-			// 	}
-			// }
-				
-			// for (int i = 0; i < length - k; i++)
-			// 	recD[i] = rb[i];	// first (length-k) bits are redundancy 
-			// for (int i = 0; i < k; i++)
-			// 	recD[i + length - k] = Data[i];	// last k bits are Data 
-			// for (int i = 0; i < length; i++)   
-			// 	c[i] = recD[i]; //store codeword
 		}
 
 		void decode_bch() {
@@ -224,7 +201,7 @@ class BCH_code{
 			}
 
 		void generate_gf() {
-		/*
+				/*
 		block length n = 63 --> 64-1  Gf(2**6)
 		generate GF(2**m) from the irreducible polynomial p(X) in p[0]..p[m]
 		lookup tables:  index->polynomial form   power_of_alpha[] contains j=alpha**i;
@@ -309,11 +286,12 @@ a62	= a5+a3+a2+1		= 101101		= 45	= a125	= a188	= a251	...	 |  x6+x5+x3+x2+1
 				mask <<= 1;
 			}
 			index_of[alpha_to[m]] = m;
-			for (int i = m + 1; i < n + 1; i++) {
+			for (int i = m + 1; i < n; i++) {
 				if (alpha_to[i - 1] >= 32)
-					alpha_to[i] = (alpha_to[i - 1] << 1) ^ prim_polynomial; //prim_polynomial = x^6 + x^4 + x^3 + x^1 + x^0 = 1011011 = 91
+				alpha_to[i] = (alpha_to[i - 1] << 1) ^ prim_polynomial; //prim_polynomial = x^6 + x^1 + x^0 = 1000011 = 67
 				else
-					alpha_to[i] = alpha_to[i - 1] << 1;
+				alpha_to[i] = alpha_to[i - 1] << 1;
+
 				index_of[alpha_to[i]] = i;
 			}
 			index_of[0] = -1;
@@ -324,7 +302,7 @@ a62	= a5+a3+a2+1		= 101101		= 45	= a125	= a188	= a251	...	 |  x6+x5+x3+x2+1
 			Compute generator polynomial of BCH code of length = 63, redundancy = 12
 		*/
 			vector <vector <int>> cycle_coset;
-			vector <int> allnumbers, temp_coset_index;
+			vector <int> allnumbers, zeros, temp_coset_index;
 			vector <int>::iterator it;
 
 			// Generate cycle sets modulo 63
@@ -350,137 +328,73 @@ a62	= a5+a3+a2+1		= 101101		= 45	= a125	= a188	= a251	...	 |  x6+x5+x3+x2+1
 			}
 			allnumbers.clear();
 
-			int rdncy = 0, size = 0, roots_found = 0, alpha_zero = 0;
+			int rdncy = 0, size = 0, roots_found = 0;
 			// Search for roots 1, 2, ..., d-1 in cycle sets (d = 5)
 			for (const auto& index : cycle_coset){
 				for (const auto& second_index : index){
 					for (int root = 1; root < d; root++)
 						if (root == second_index){
 							size = index.size();
-							alpha_zero = index[0];
 							roots_found++;
 						}
 				}
 				rdncy += size;
 				if(size != 0) {
 				//populate zeros with cosets that have roots 1 to d-1
-					zeros_deluxe.push_back(index);
-					// for (const auto& second_index : index){
-					// 	zeros.push_back(second_index);
-					// }
+					for (const auto& second_index : index)
+						zeros.push_back(second_index);
 				}
 				size = 0;
 				if (roots_found == d - 1)
 					break;
 			}
 
-			//calculate first and second minimal polynomial
-			vector <int> min_polynomials;
-			int first_factor = 0, second_factor = 0;
-			for (const auto& zero_coset:zeros_deluxe) {
-				int product = 0;
-				bool factors_not_set = true;
-				int loop_counter = 1;
-				for (const auto& zero:zero_coset) {
-					int next_zero = *(&zero + 1);
-					if (loop_counter < zero_coset.size()){
-						if (factors_not_set) {
-							first_factor = alpha_to[zero] ^ 2;
-							factors_not_set = false;
-						} else 
-							first_factor = product;
-						second_factor = alpha_to[next_zero] ^ 2;
-						for (int i=first_factor; i>0; i>>=1){
-							if (i & 1){
-								product ^= second_factor;
-								product %= n;
-							}
-						second_factor <<= 1;
-						}
-					}
-					loop_counter++;
-				}
-				product ^= prim_polynomial;
-				min_polynomials.push_back(product);
-			}
-			
-			//TODO: second polynomial isn't calculated right, should be 117
-			min_polynomials[1] = 117;
-			
-			// int test1 = 91;
-			// int test2 = 4;
-			// int res = 0;
-			// while (test1 > 0){
-			// 	if (test1 & 1){
-			// 		res ^= test2;
-			// 		res %= 127;
-			// 	}
-			// 	test2 <<= 1;
-			// 	test1 >>= 1;
-			// } 
-			
-			int loop_counter = 1;
-			for (auto& min_polynomial:min_polynomials){
-				int next_polynomial = *(&min_polynomial + 1);
-				if (loop_counter < min_polynomials.size()){
-					while (min_polynomial > 0){
-						if (min_polynomial & 1){
-							generator_polynomial ^= next_polynomial;
-						}
-						next_polynomial <<= 1;
-						min_polynomial >>= 1;
-					}
-				loop_counter++;
-				}
-			}
-
 			cout<<"This is a ("<<length<<","<<k<<","<<d<<") binary BCH code"<<endl;
-			// Compute generator polynomial by multiplying zeros root polynomials
+			//Compute generator polynomial 
+			g[0] = alpha_to[zeros[0]];
+			g[1] = 1;		// g(x) = (X + zeros[0]) initially
+			for (int i = 2; i <= rdncy; i++) {
+			g[i] = 1;
+			for (int j = i - 1; j > 0; j--){
+				if (g[j] != 0)
+				g[j] = g[j - 1] ^ alpha_to[(index_of[g[j]] + zeros[i-1]) % n];
+				else
+				g[j] = g[j - 1];
+			}
+			g[0] = alpha_to[(index_of[g[0]] + zeros[i-1]) % n];
+			}
 
-			// g[0] = alpha_to[zeros[0]];
-			// g[1] = 1;		// g(x) = (X + zeros[0]) initially ((X = x^6 + x + 1))
-			// for (int i = 2; i <= rdncy; i++) {
-			// 	g[i] = 1;
-			// 		for (int j = i - 1; j > 0; j--){
-			// 			if (g[j] != 0)
-			// 				g[j] = g[j - 1] ^ alpha_to [(index_of[g[j]] + zeros[i-1]) % n];
-			// 			else
-			// 				g[j] = g[j - 1];
-			// 		}	
-			// 	g[0] = alpha_to[(index_of[g[0]] + zeros[i-1]) % n];
-			// }
 			cout<<"g(x) = ";
-			bitset <13> generator_polynomial_binary = generator_polynomial;
-			cout<<generator_polynomial_binary<<endl;
-
-			// while (generator_polynomial > 0){
-			// 	if (generator_polynomial & 1)
-			// 		g.push_back(1);
-			// 	else
-			// 		g.push_back(0);
-			// 	generator_polynomial >>= 1;
-			// }
-			
-			// for (int i = g.size()-1; i>=0; i--)
-			// 	//cout<<g[i]; // 1100100100111 == 6439
-			//cout<<endl;
+			for (int i = 0; i <= rdncy; i++) 
+			    cout<<g[i];
+			cout<<endl;
 		}
 };
 
 int main() {
 	char run_program = 'y';
+	int seed;
 	bool error_pos_show [63] = {false};
 	BCH_code BCH_magic;
 	while(run_program == 'y'){
 		int seed = 1669581010;  //time(NULL);
 		cout<<"Seed used: "<<seed<<endl;
 		srand(seed);
+
 		// Randomly generate Data 
-		for (int i = 0; i < k; i++) // k = 1
-		 	Data[i] = (rand() % 2);
+		for (int i = 0; i < k; i++)
+			Data[i] = (rand() % 2);
 
 		// ENCODE 
-		BCH_magic.encode_bch();
+		BCH_magic.encode_bch();	// encode Data 
+	
+		for (int i = 0; i < length - k; i++)
+			recD[i] = rb[i];	// first (length-k) bits are redundancy 
+		for (int i = 0; i < k; i++)
+			recD[i + length - k] = Data[i];	// last k bits are Data 
+		for (int i = 0; i < length; i++) {  //store codeword
+			c[i] = recD[i];
+		}
 
 		// ERRORS
 		BCH_magic.user_input(); 
