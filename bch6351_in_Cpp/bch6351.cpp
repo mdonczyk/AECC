@@ -1,19 +1,22 @@
+#include <bit>
 #include <iostream>
 #include <algorithm>
 #include <vector>
 #include <bitset>
-#include <bit>
 #include <time.h>
 #include <cmath>
 #include <chrono>
 
 using namespace std;
 
-int m = 6, n = 63, k = 51, t = 2, d = 5, length = 63, prim_polynomial = 0, generator_polynomial = 0;
+int m = 6, n = 63, k = 51, t = 2, d = 5, length = 63, prim_polynomial = 0;
+long long generator_polynomial = 0;
 int p[7];
 int alpha_to[64] = {0}, index_of[64] = {0}; 
-int c[63] = {0};
-int recD[63], Data[51], rb[12] = {0};
+int c[63];
+bitset <63> Data;
+bitset <63> recD_deluxe;
+int recD[63];
 vector <int> errpos, zeros, g;
 vector <vector <int>> zeros_deluxe;
 int numerr, decerror = 0;
@@ -22,9 +25,14 @@ class BCH_code{
 
 	public:
 		BCH_code(){
+			
 			auto start = chrono::high_resolution_clock::now();
 			read_p();		// read primitive polynomial p(x) 
 			generate_gf();	// generate the Galois Field GF(2**m) (GF(64))
+			// bitset <63> polynomial1 ("101010100000000");
+			// bitset <63> polynomial2 ("111010001");
+			// bitset <63> fakereminder (0);
+			// divide_polynomials(polynomial1, polynomial2, fakereminder);
 			gen_poly();		// Compute the generator polynomial g(x) of BCH code
 			auto stop = chrono::high_resolution_clock::now();
 			auto duration = chrono::duration_cast<chrono::microseconds>(stop - start);
@@ -36,22 +44,29 @@ class BCH_code{
 		  codeword is c(X) = Data(X)*X**(n-k)+ rb(X)1 length = 63, k = 51;
 		*/	
 			
-			for (const auto& data:Data)
-				cout<<data;
-			bitset <13> generator_polynomial_binary = generator_polynomial;
-			cout<<endl<<generator_polynomial_binary<<endl;
-			
-			long long result = 0;
-			long long generator_polynomial_deluxe = generator_polynomial;
-			for (int i=0; i<k; i++){
-				if (Data[i] == 1){
-					result ^= generator_polynomial_deluxe;
-				}
-				generator_polynomial_deluxe <<= 1;
-			}
-			bitset <63> test = result;
-			cout<<test;
+			bitset <63> generator_polynomial_binary = generator_polynomial;
+			bitset <63> rb (0);
+			divide_polynomials(Data, generator_polynomial_binary, rb);
 
+			cout<<"DATA      "<<Data<<endl<<"GEN POL   "<<generator_polynomial_binary<<endl<<"RED BITS  "<<rb<<endl;
+
+			//shift rb and Data bits to the begining of arrays
+			rb <<= 51;
+			recD_deluxe = Data ^ rb;
+			cout<<"CODEWORD: "<<recD_deluxe<<endl; //Systematic encoding: The message as a suffix
+			// first (length-k) bits are redundancy 
+			// last k bits are Data 
+			cout<<"stored c: ";
+			for (int i = 0; i < length; i++){
+				c[i] = recD_deluxe[length-i-1]; //store codeword
+				recD[i] = c[i];
+				cout<<c[i];
+			}
+
+			cout<<endl;
+
+			// power = 64 - countl_zero(generator_polynomial);
+			// Data
 
 			// int i, j, feedback;
 			// for (i = k - 1; i >= 0; i--) {
@@ -113,7 +128,7 @@ class BCH_code{
 					if ( s[3] == s3 )  // Was it a single error ? 
 						{
 						cout<<"One error at "<<s[1];
-						recD[s[1]] ^= 1;		// Yes: Correct it 
+						recD[s[1]] = recD[s[1]] ^ 1;		// Yes: Correct it 
 						}
 					else {				/* Assume two errors occurred and solve
 											for the coefficients of sigma(x), the
@@ -151,7 +166,7 @@ class BCH_code{
 						if (count == 2)	
 						// no. roots = degree of elp hence 2 errors 
 						for (i = 0; i < 2; i++)
-								recD[loc[i]] ^= 1;
+								recD[loc[i]] = recD[loc[i]] ^ 1;
 						else	// Cannot solve: Error detection 
 							cout<<endl<<"Incomplete decoding";
 						}
@@ -195,7 +210,7 @@ class BCH_code{
 					cin_check = true;
 				}
 				errpos.push_back(error_position);
-				recD[error_position] ^= 1;
+				recD[error_position] = recD[error_position] ^ 1;
 			}
 		}
 
@@ -319,6 +334,27 @@ a62	= a5+a3+a2+1		= 101101		= 45	= a125	= a188	= a251	...	 |  x6+x5+x3+x2+1
 			index_of[0] = -1;
 		}
 
+		void divide_polynomials(bitset <63> &polynomial1, bitset <63> &polynomial2, bitset <63> &reminder){
+    
+			// 	101010100000000 | 111010001
+			// _________________|________________
+			// 			. . .   |   1110101 <- quotient
+			// 		__________|
+			// 		11100101 <- reminder
+			// :param polynomial1: 1st polynomial.
+			// :param polynomial2: 2nd polynomial.
+			// :returns: the quotient and the remainder.
+			
+			bitset <63> quotient = 0;
+			reminder = polynomial1;
+			int shift = 0;
+			while (countl_zero(reminder.to_ullong()) <= countl_zero(bit_cast <unsigned long long> (polynomial2))){
+				shift =  countl_zero(bit_cast <unsigned long long> (polynomial2)) - countl_zero(reminder.to_ullong());
+				reminder = reminder ^ (polynomial2 << shift);
+				quotient = quotient ^ bitset <63> (1 << shift);
+			}
+		}
+
 		void gen_poly() {
 		/*  
 			Compute generator polynomial of BCH code of length = 63, redundancy = 12
@@ -380,10 +416,10 @@ a62	= a5+a3+a2+1		= 101101		= 45	= a125	= a188	= a251	...	 |  x6+x5+x3+x2+1
 			for (const auto& zero_coset:zeros_deluxe) {
 				int product = 0;
 				bool factors_not_set = true;
-				int loop_counter = 1;
+				int loop_cntr = 1;
 				for (const auto& zero:zero_coset) {
 					int next_zero = *(&zero + 1);
-					if (loop_counter < zero_coset.size()){
+					if (loop_cntr < zero_coset.size()){
 						if (factors_not_set) {
 							first_factor = alpha_to[zero] ^ 2;
 							factors_not_set = false;
@@ -398,7 +434,7 @@ a62	= a5+a3+a2+1		= 101101		= 45	= a125	= a188	= a251	...	 |  x6+x5+x3+x2+1
 						second_factor <<= 1;
 						}
 					}
-					loop_counter++;
+					loop_cntr++;
 				}
 				product ^= prim_polynomial;
 				min_polynomials.push_back(product);
@@ -419,10 +455,10 @@ a62	= a5+a3+a2+1		= 101101		= 45	= a125	= a188	= a251	...	 |  x6+x5+x3+x2+1
 			// 	test1 >>= 1;
 			// } 
 			
-			int loop_counter = 1;
+			int loop_cntr = 1;
 			for (auto& min_polynomial:min_polynomials){
 				int next_polynomial = *(&min_polynomial + 1);
-				if (loop_counter < min_polynomials.size()){
+				if (loop_cntr < min_polynomials.size()){
 					while (min_polynomial > 0){
 						if (min_polynomial & 1){
 							generator_polynomial ^= next_polynomial;
@@ -430,7 +466,7 @@ a62	= a5+a3+a2+1		= 101101		= 45	= a125	= a188	= a251	...	 |  x6+x5+x3+x2+1
 						next_polynomial <<= 1;
 						min_polynomial >>= 1;
 					}
-				loop_counter++;
+				loop_cntr++;
 				}
 			}
 
@@ -513,15 +549,15 @@ int main() {
 		// print out original and decoded Data
 		cout<<endl<<"Results: "<<endl;
 		cout<<"Original Data  = ";
-		for (int i = 0; i < k; i++)
+		for (int i = k-1; i >= 0; i--)
 			cout<<Data[i];
 		cout<<endl<<"Recovered Data = ";
 		for (int i = length - k; i < length; i++)
 			cout<<recD[i];
 		// decoding errors: we compare only the Data portion 
-		cout<<endl<<"                  ";
+		cout<<endl<<"                 ";
 		for (int i = length - k; i < length; i++){
-			if (Data[i - length + k] != recD[i]){
+			if (Data[length - i-1] != recD[i]){
 				decerror++;
 				cout<<'^';
 			}
