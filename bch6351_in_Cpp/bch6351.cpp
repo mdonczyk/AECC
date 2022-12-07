@@ -1,4 +1,3 @@
-#include <bit>
 #include <iostream>
 #include <algorithm>
 #include <vector>
@@ -6,6 +5,8 @@
 #include <time.h>
 #include <cmath>
 #include <chrono>
+#include <bit>
+#include <set>
 
 using namespace std;
 
@@ -29,10 +30,6 @@ class BCH_code{
 			auto start = chrono::high_resolution_clock::now();
 			read_p();		// read primitive polynomial p(x) 
 			generate_gf();	// generate the Galois Field GF(2**m) (GF(64))
-			// bitset <63> polynomial1 ("101010100000000");
-			// bitset <63> polynomial2 ("111010001");
-			// bitset <63> fakereminder (0);
-			// divide_polynomials(polynomial1, polynomial2, fakereminder);
 			gen_poly();		// Compute the generator polynomial g(x) of BCH code
 			auto stop = chrono::high_resolution_clock::now();
 			auto duration = chrono::duration_cast<chrono::microseconds>(stop - start);
@@ -60,7 +57,6 @@ class BCH_code{
 			for (int i = 0; i < length; i++){
 				c[i] = recD_deluxe[length-i-1]; //store codeword
 				recD[i] = c[i];
-				cout<<c[i];
 			}
 
 			cout<<endl;
@@ -178,6 +174,7 @@ class BCH_code{
 
 
 		void user_input(){
+
 			cout<<endl<<"Enter the number of errors (choose a number between 1 and 10): "<<endl;
 			cin>>numerr;
 			while (!(numerr >= 1 && numerr <= 10)){
@@ -221,20 +218,21 @@ class BCH_code{
 
 	private:
 		void read_p(){
-		// Primitive polynomial of degree 6 - 1000011
+		// Primitive polynomial of degree 6 - 1011011
 			p[0] = p[1] = p[3] = p[4] = p[6] = 1;
 			p[2] = p[5] = 0;
-			bool use_plus = false;
 			cout<<"Primitive polynomial:"<<endl<<"p(x) = ";
-			for (int i = 6; i >=0; i--)
-				if(p[i] && !(use_plus)){
-					cout<<"x^"<<i;
-					prim_polynomial += pow(2, i);
-					use_plus = true;
-				} else if (p[i] && use_plus){
-					cout<<" + x^"<<i;
+			for (int i = 6; i >=0; i--){
+				if (p[i]){
+					if(i == 6)
+						cout<<"x^"<<i;
+					else if (i == 0){
+						cout<<" + 1";
+					} else
+						cout<<" + x^"<<i;
 					prim_polynomial += pow(2, i);
 				}
+			}
 			cout<<endl;
 			}
 
@@ -246,7 +244,7 @@ class BCH_code{
 		polynomial form -> index form  alpha[j=alpha**i] = i alpha=2 is the
 		primitive element of GF(2**m) 
 			
-							GF(64) : P(x) = x6 + x4 + x3 + x + 1 = 1011011
+							GF(64) : P(x) = x6 + x4 + x3 + x + 1 = 1011011 = 91
 
 		alpha_to[4] = 16)	         	index_of[4] = 2) 	          	  
 -----------------------------------------------------------------------------------------------------------------
@@ -334,7 +332,7 @@ a62	= a5+a3+a2+1		= 101101		= 45	= a125	= a188	= a251	...	 |  x6+x5+x3+x2+1
 			index_of[0] = -1;
 		}
 
-		void divide_polynomials(bitset <63> &polynomial1, bitset <63> &polynomial2, bitset <63> &reminder){
+		void divide_polynomials(const bitset <63> &polynomial1, const bitset <63> &polynomial2, bitset <63> &reminder) {
     
 			// 	101010100000000 | 111010001
 			// _________________|________________
@@ -355,29 +353,44 @@ a62	= a5+a3+a2+1		= 101101		= 45	= a125	= a188	= a251	...	 |  x6+x5+x3+x2+1
 			}
 		}
 
+		void multiply_polynomials(auto polynomial1, auto polynomial2, auto &product) {
+
+			while (polynomial1 > 0){
+						if (polynomial1 & 1){
+							product ^= polynomial2;
+						}
+						polynomial2 <<= 1;
+						polynomial1 >>= 1;
+					}
+		}
+
 		void gen_poly() {
 		/*  
 			Compute generator polynomial of BCH code of length = 63, redundancy = 12
 		*/
+			int allnumbers_size_before_insert = 0;
 			vector <vector <int>> cycle_coset;
-			vector <int> allnumbers, temp_coset_index;
-			vector <int>::iterator it;
+			vector <int> temp_coset_index;
+			set <int> allnumbers;
 
 			// Generate cycle sets modulo 63
-			for (int i = 0, j; i <= 31; i++){
-				for (j = 0; ; j++){
+			for (int i = 0, j; i <= 31; i++) {
+				for (j = 0; ; j++) {
 					if (j == 0)
 						temp_coset_index.push_back(i);
 					else
 						temp_coset_index.push_back((temp_coset_index[j - 1] << 1 ) % n);
-					int last_element = temp_coset_index[j];
-					it = (find(allnumbers.begin(), allnumbers.end(), last_element));
-					if (it != allnumbers.end()){
+					
+					//check if element is unique
+					allnumbers_size_before_insert = allnumbers.size();
+					allnumbers.insert(temp_coset_index[j]);
+					if (allnumbers_size_before_insert == allnumbers.size()) {
 						temp_coset_index.clear();
 						break;
 					}
-					allnumbers.push_back(last_element);
-					if (temp_coset_index[0] == (temp_coset_index[j] << 1) % n){
+
+					//if current element equals first element then we made a full circle and its time to push to vector
+					if (temp_coset_index[0] == (temp_coset_index[j] << 1) % n) {
 						cycle_coset.push_back(temp_coset_index);
 						temp_coset_index.clear();
 						break;
@@ -386,8 +399,9 @@ a62	= a5+a3+a2+1		= 101101		= 45	= a125	= a188	= a251	...	 |  x6+x5+x3+x2+1
 			}
 			allnumbers.clear();
 
-			int rdncy = 0, size = 0, roots_found = 0, alpha_zero = 0;
+			int size = 0, roots_found = 0, alpha_zero = 0;
 			// Search for roots 1, 2, ..., d-1 in cycle sets (d = 5)
+
 			for (const auto& index : cycle_coset){
 				for (const auto& second_index : index){
 					for (int root = 1; root < d; root++)
@@ -397,109 +411,49 @@ a62	= a5+a3+a2+1		= 101101		= 45	= a125	= a188	= a251	...	 |  x6+x5+x3+x2+1
 							roots_found++;
 						}
 				}
-				rdncy += size;
 				if(size != 0) {
 				//populate zeros with cosets that have roots 1 to d-1
 					zeros_deluxe.push_back(index);
-					// for (const auto& second_index : index){
-					// 	zeros.push_back(second_index);
-					// }
+					size = 0;
 				}
-				size = 0;
 				if (roots_found == d - 1)
 					break;
 			}
 
 			//calculate first and second minimal polynomial
 			vector <int> min_polynomials;
-			int first_factor = 0, second_factor = 0;
+			int first_factor = 0, second_factor = 0, product = 0;
+
 			for (const auto& zero_coset:zeros_deluxe) {
-				int product = 0;
-				bool factors_not_set = true;
-				int loop_cntr = 1;
-				for (const auto& zero:zero_coset) {
-					int next_zero = *(&zero + 1);
-					if (loop_cntr < zero_coset.size()){
-						if (factors_not_set) {
-							first_factor = alpha_to[zero] ^ 2;
-							factors_not_set = false;
-						} else 
-							first_factor = product;
-						second_factor = alpha_to[next_zero] ^ 2;
-						for (int i=first_factor; i>0; i>>=1){
-							if (i & 1){
-								product ^= second_factor;
-								product %= n;
-							}
-						second_factor <<= 1;
-						}
+				for (int i=1; i<zero_coset.size(); i++) {
+					if (i == 1) {
+						first_factor = alpha_to[zero_coset[i-1]] ^ 2; // (ax + 1)
+					} else {
+						first_factor = product;
 					}
-					loop_cntr++;
+					second_factor = alpha_to[zero_coset[i]] ^ 2;
+					multiply_polynomials(first_factor, second_factor, product);
+					product %= n;
 				}
 				product ^= prim_polynomial;
+				cout<<"product = "<<product<<endl;
 				min_polynomials.push_back(product);
+				product = 0;
 			}
 			
 			//TODO: second polynomial isn't calculated right, should be 117
 			min_polynomials[1] = 117;
 			
-			// int test1 = 91;
-			// int test2 = 4;
-			// int res = 0;
-			// while (test1 > 0){
-			// 	if (test1 & 1){
-			// 		res ^= test2;
-			// 		res %= 127;
-			// 	}
-			// 	test2 <<= 1;
-			// 	test1 >>= 1;
-			// } 
-			
-			int loop_cntr = 1;
-			for (auto& min_polynomial:min_polynomials){
-				int next_polynomial = *(&min_polynomial + 1);
-				if (loop_cntr < min_polynomials.size()){
-					while (min_polynomial > 0){
-						if (min_polynomial & 1){
-							generator_polynomial ^= next_polynomial;
-						}
-						next_polynomial <<= 1;
-						min_polynomial >>= 1;
-					}
-				loop_cntr++;
-				}
+						
+			cout<<"This is a ("<<length<<","<<k<<","<<d<<") binary BCH code"<<endl;
+
+			// Compute generator polynomial by multiplying zeros root polynomials
+			for (int i=1; i<min_polynomials.size(); i++) {
+				multiply_polynomials(min_polynomials[i-1], min_polynomials[i], generator_polynomial);
 			}
 
-			cout<<"This is a ("<<length<<","<<k<<","<<d<<") binary BCH code"<<endl;
-			// Compute generator polynomial by multiplying zeros root polynomials
-
-			// g[0] = alpha_to[zeros[0]];
-			// g[1] = 1;		// g(x) = (X + zeros[0]) initially ((X = x^6 + x + 1))
-			// for (int i = 2; i <= rdncy; i++) {
-			// 	g[i] = 1;
-			// 		for (int j = i - 1; j > 0; j--){
-			// 			if (g[j] != 0)
-			// 				g[j] = g[j - 1] ^ alpha_to [(index_of[g[j]] + zeros[i-1]) % n];
-			// 			else
-			// 				g[j] = g[j - 1];
-			// 		}	
-			// 	g[0] = alpha_to[(index_of[g[0]] + zeros[i-1]) % n];
-			// }
-			cout<<"g(x) = ";
 			bitset <13> generator_polynomial_binary = generator_polynomial;
-			cout<<generator_polynomial_binary<<endl;
-
-			// while (generator_polynomial > 0){
-			// 	if (generator_polynomial & 1)
-			// 		g.push_back(1);
-			// 	else
-			// 		g.push_back(0);
-			// 	generator_polynomial >>= 1;
-			// }
-			
-			// for (int i = g.size()-1; i>=0; i--)
-			// 	//cout<<g[i]; // 1100100100111 == 6439
-			//cout<<endl;
+			cout<<"g(x) = "<<generator_polynomial_binary<<endl;
 		}
 };
 
