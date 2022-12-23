@@ -11,13 +11,11 @@
 using namespace std;
 
 int m = 6, n = 63, k = 51, t = 2, d = 5, length = 63, prim_polynomial = 0;
-long long generator_polynomial = 0;
-int p[7];
+unsigned long long generator_polynomial = 0;
+bitset<7> p;
 int alpha_to[64] = {0}, index_of[64] = {0}; 
-int c[63];
-bitset <63> Data;
-bitset <63> recD_deluxe;
-int recD[63];
+int c[63], recD[63];
+bitset <63> Data, recD_deluxe;
 vector <int> errpos, zeros, g;
 vector <vector <int>> zeros_deluxe;
 int numerr, decerror = 0;
@@ -36,7 +34,7 @@ class BCH_code{
 			cout <<"Count: "<< duration.count() << " microseconds" << endl;
 		}
 
-		void encode_bch() { //multiply message polynomial by generator polynomial --> c(x) = 
+		void encode_bch() { //multiply message polynomial by generator polynomial 
 		/* 
 		  codeword is c(X) = Data(X)*X**(n-k)+ rb(X)1 length = 63, k = 51;
 		*/	
@@ -47,8 +45,9 @@ class BCH_code{
 
 			cout<<"DATA      "<<Data<<endl<<"GEN POL   "<<generator_polynomial_binary<<endl<<"RED BITS  "<<rb<<endl;
 
-			//shift rb and Data bits to the begining of arrays
-			rb <<= 51;
+			//shift Data by n-k and add redundant bits as suffix
+			//rb <<= 51;
+			Data <<= (n-k);
 			recD_deluxe = Data ^ rb;
 			cout<<"CODEWORD: "<<recD_deluxe<<endl; //Systematic encoding: The message as a suffix
 			// first (length-k) bits are redundancy 
@@ -57,36 +56,10 @@ class BCH_code{
 			for (int i = 0; i < length; i++){
 				c[i] = recD_deluxe[length-i-1]; //store codeword
 				recD[i] = c[i];
+				cout<<c[i];
 			}
 
 			cout<<endl;
-
-			// power = 64 - countl_zero(generator_polynomial);
-			// Data
-
-			// int i, j, feedback;
-			// for (i = k - 1; i >= 0; i--) {
-			// 	feedback = Data[i] ^ rb[length - k - 1];
-			// 	if (feedback != 0) {
-			// 		for (j = length - k - 1; j > 0; j--)
-			// 			if (g[j] != 0)
-			// 				rb[j] = rb[j - 1] ^ feedback;
-			// 			else
-			// 				rb[j] = rb[j - 1];
-			// 		rb[0] = g[0] && feedback;
-			// 	} else {
-			// 		for (j = length - k - 1; j > 0; j--)
-			// 			rb[j] = rb[j - 1];
-			// 		rb[0] = 0;
-			// 	}
-			// }
-				
-			// for (int i = 0; i < length - k; i++)
-			// 	recD[i] = rb[i];	// first (length-k) bits are redundancy 
-			// for (int i = 0; i < k; i++)
-			// 	recD[i + length - k] = Data[i];	// last k bits are Data 
-			// for (int i = 0; i < length; i++)   
-			// 	c[i] = recD[i]; //store codeword
 		}
 
 		void decode_bch() {
@@ -219,22 +192,11 @@ class BCH_code{
 	private:
 		void read_p(){
 		// Primitive polynomial of degree 6 - 1011011
-			p[0] = p[1] = p[3] = p[4] = p[6] = 1;
-			p[2] = p[5] = 0;
+			p = 0b1011011;
+			prim_polynomial = p.to_ulong();
 			cout<<"Primitive polynomial:"<<endl<<"p(x) = ";
-			for (int i = 6; i >=0; i--){
-				if (p[i]){
-					if(i == 6)
-						cout<<"x^"<<i;
-					else if (i == 0){
-						cout<<" + 1";
-					} else
-						cout<<" + x^"<<i;
-					prim_polynomial += pow(2, i);
-				}
-			}
-			cout<<endl;
-			}
+			verbose_polynomial(p);
+		}			
 
 		void generate_gf() {
 		/*
@@ -313,12 +275,15 @@ a60	= a5+a4				= 110000		= 48	= a123	= a186	= a249	...	 |  x6+x4+x2+x+1
 a61	= a5+a4+a3+a+1		= 111011		= 59	= a124	= a187	= a250	...	 |  x6+x5+x3+x2+1
 a62	= a5+a3+a2+1		= 101101		= 45	= a125	= a188	= a251	...	 |  x6+x5+x3+x2+1
 */
-			int mask = 1;
+
+			int mask = 1, temp_prim_polynomial = prim_polynomial;
 			for (int i = 0; i < m; i++) { //m = 6
 				alpha_to[i] = mask;
 				index_of[alpha_to[i]] = i;
-				if (p[i] != 0)
+				if (temp_prim_polynomial & 1) {
 					alpha_to[m] ^= mask;
+				}
+				temp_prim_polynomial >>=1;
 				mask <<= 1;
 			}
 			index_of[alpha_to[m]] = m;
@@ -332,25 +297,51 @@ a62	= a5+a3+a2+1		= 101101		= 45	= a125	= a188	= a251	...	 |  x6+x5+x3+x2+1
 			index_of[0] = -1;
 		}
 
-		void divide_polynomials(const bitset <63> &polynomial1, const bitset <63> &polynomial2, bitset <63> &reminder) {
+		void divide_polynomials(const bitset <63> &polynomial1, const bitset <63> &polynomial2, bitset <63> &remainder) {
     
-			// 	101010100000000 | 111010001
+			// 	101 0101 0000 0000 | 1 1101 0001
 			// _________________|________________
-			// 			. . .   |   1110101 <- quotient
+			// 			. . .   |   111 0101 <- quotient
 			// 		__________|
-			// 		11100101 <- reminder
+			// 		1110 0101 <- remainder
 			// :param polynomial1: 1st polynomial.
 			// :param polynomial2: 2nd polynomial.
 			// :returns: the quotient and the remainder.
-			
-			bitset <63> quotient = 0;
-			reminder = polynomial1;
+
+			bitset <63> quotient = 0, shifter = 1;
 			int shift = 0;
-			while (countl_zero(reminder.to_ullong()) <= countl_zero(bit_cast <unsigned long long> (polynomial2))){
-				shift =  countl_zero(bit_cast <unsigned long long> (polynomial2)) - countl_zero(reminder.to_ullong());
-				reminder = reminder ^ (polynomial2 << shift);
-				quotient = quotient ^ bitset <63> (1 << shift);
+			remainder = polynomial1;
+			while (MSB(remainder) >= MSB(polynomial2)) {
+				shift =  MSB(remainder) - MSB(polynomial2);
+				remainder ^= polynomial2 << shift;
+				quotient ^= shifter << shift;
 			}
+		}
+
+		int MSB(const auto &polynomial) { //Most Significant Bit
+			
+			return (63 - countl_zero(polynomial.to_ullong()));
+		}
+
+		void verbose_polynomial(const auto &polynomial) { //human readable polynomial format
+
+			int power = MSB(polynomial);
+			unsigned long long mask = pow(2, power);
+			unsigned long long init_mask = mask;
+			while (mask > 0) {
+				if(polynomial.to_ulong() & mask) {
+					if (mask == init_mask) {
+					cout<<"x^"<<power;
+					} else if (mask == 1){
+					cout<<" + 1";
+					} else {
+					cout<<" + x^"<<power;
+					}
+				}
+				mask >>= 1;
+				power --;
+			}
+			cout<<endl;
 		}
 
 		void multiply_polynomials(auto polynomial1, auto polynomial2, auto &product) {
@@ -423,8 +414,26 @@ a62	= a5+a3+a2+1		= 101101		= 45	= a125	= a188	= a251	...	 |  x6+x5+x3+x2+1
 			//calculate first and second minimal polynomial
 			vector <int> min_polynomials;
 			int first_factor = 0, second_factor = 0, product = 0;
+			// vector <int> zeroooes = {3, 6, 5};
+			// for (int i=1; i<zeroooes.size(); i++)  {
+			// 	if (i == 1) {
+			// 		first_factor = alpha_to[zeroooes[i-1]] ^ 2; // (ax + 1)
+			// 	} else {
+			// 		first_factor = product;
+			// 	}
+			// 	second_factor = alpha_to[zeroooes[i]] ^ 2;
+			// 	// cout<<"first_factor = "<<first_factor<<endl;
+			// 	// cout<<"second_factor = "<<second_factor<<endl;	
+			// 	multiply_polynomials(first_factor, second_factor, product);
+			// }
+			// product %= 6;
+			// cout<<"product = "<<product<<endl;
+			// product ^= 11;
+			// cout<<"product mod 11 = "<<product<<endl;
+			
 
-			for (const auto& zero_coset:zeros_deluxe) {
+			int dividor = 127;
+			for (const auto& zero_coset : zeros_deluxe) {
 				for (int i=1; i<zero_coset.size(); i++) {
 					if (i == 1) {
 						first_factor = alpha_to[zero_coset[i-1]] ^ 2; // (ax + 1)
@@ -432,15 +441,20 @@ a62	= a5+a3+a2+1		= 101101		= 45	= a125	= a188	= a251	...	 |  x6+x5+x3+x2+1
 						first_factor = product;
 					}
 					second_factor = alpha_to[zero_coset[i]] ^ 2;
+					// cout<<"first_factor = "<<first_factor<<endl;
+					// cout<<"second_factor = "<<second_factor<<endl;	
 					multiply_polynomials(first_factor, second_factor, product);
-					product %= n;
+					cout<<first_factor<<" "<<second_factor<<" "<<product<<endl;
+					product %= dividor;
 				}
 				product ^= prim_polynomial;
-				cout<<"product = "<<product<<endl;
+				if (product == 117)
+					cout<<"product % "<<dividor<<" = "<<product<<endl;
+				cout<<"product % "<<dividor<<" = "<<product<<endl;
 				min_polynomials.push_back(product);
 				product = 0;
-			}
-			
+			}			
+
 			//TODO: second polynomial isn't calculated right, should be 117
 			min_polynomials[1] = 117;
 			
