@@ -1,5 +1,12 @@
 #include "bch6351.hpp"
-#define GF 63 // Galois Field --> 2**m - 1 = 2**6 - 1
+
+std::bitset <GF> BCH_code::generate_data() {
+	std::bitset <GF> Data;
+	for (int i = 0; i < k; i++) {// k = 1
+		Data[i] = (rand() % 2);
+	}
+	return Data;
+}
 
 void BCH_code::read_p() { //DONE
 // Primitive polynomial of degree 6 - 1011011
@@ -10,8 +17,8 @@ void BCH_code::read_p() { //DONE
 }
 
 void BCH_code::generate_gf() { //DONE
-	int mask = 1, temp_prim_polynomial = prim_polynomial;
-	for (int i = 0; i < m; i++) { //m = 6
+	uint mask = 1, temp_prim_polynomial = prim_polynomial;
+	for (uint i = 0; i < m; i++) { //m = 6
 		alpha_to[i] = mask;
 		index_of[alpha_to[i]] = i;
 		if (temp_prim_polynomial & 1) {
@@ -21,7 +28,7 @@ void BCH_code::generate_gf() { //DONE
 		mask <<= 1;
 	}
 	index_of[alpha_to[m]] = m;
-	for (int i = m + 1; i < n + 1; i++) {
+	for (uint i = m + 1; i < n + 1; i++) {
 		if (alpha_to[i - 1] >= 32) {
 			alpha_to[i] = (alpha_to[i - 1] << 1) ^ prim_polynomial; //prim_polynomial = x^6 + x^4 + x^3 + x^1 + x^0 = 1011011 = 91
 		}
@@ -37,9 +44,9 @@ void BCH_code::gen_poly() { //FIXME: second polynomial isn't calculated right, s
 /*  
 	Compute generator polynomial of BCH code of n = 63, redundancy = 12
 */
-	std::vector <std::vector <int >>  cycle_coset;
+	std::vector <std::vector <int>>  cycle_coset;
 	std::vector <int> temp_coset_index;
-	std::set <int> allnumbers;
+	std::set <int> unique_numbers;
 	// Generate cycle sets modulo 63
 	for (int i = 0; i <= 31; i++) {
 		int j = -1;
@@ -51,7 +58,7 @@ void BCH_code::gen_poly() { //FIXME: second polynomial isn't calculated right, s
 				temp_coset_index.push_back((temp_coset_index[j - 1]  <<  1 ) % n);
 			}
 			//check if element is unique
-			auto status = allnumbers.emplace(temp_coset_index[j]);
+			auto status = unique_numbers.emplace(temp_coset_index[j]);
 			if (!status.second) {
 				temp_coset_index.clear();
 				break;
@@ -112,34 +119,35 @@ void BCH_code::gen_poly() { //FIXME: second polynomial isn't calculated right, s
 	std::cout << "g(x) = " << generator_polynomial_binary << std::endl;
 }
 
-void BCH_code::encode_bch() { //DONE multiply message polynomial by generator polynomial
+std::bitset <GF> BCH_code::encode_bch(const std::bitset <GF> &Data) { //DONE multiply message polynomial by generator polynomial
 /*
 	codeword is c(X) = Data(X)*X**(n-k)+ rb(X)1 n = 63, k = 51;
 */
+	std::bitset <GF> Codeword;
 	std::bitset <GF> generator_polynomial_binary = generator_polynomial;
-	std::bitset <GF> rb (0);
-	divide_polynomials(Data, generator_polynomial_binary, rb);
+	std::bitset <GF> rb = divide_polynomials(Data, generator_polynomial_binary);
 	std::cout << "DATA      " << Data << std::endl << "GEN POL   " << generator_polynomial_binary << std::endl << "RED BITS  " << rb << std::endl;
 	//shift rb by k and add redundant bits as prefix
 	rb <<= k;
-	recD_deluxe = Data ^ rb;
-	std::cout << "CODEWORD: " << recD_deluxe << std::endl; //Systematic encoding: The message as a suffix
+	Codeword = Data ^ rb;
+	std::cout << "CODEWORD: " << Codeword << std::endl; //Systematic encoding: The message as a suffix
 	// first (n-k) bits are Data
 	// last k bits are redundancy
 	std::cout << "stored c: ";
 	for (int i = 0; i < n; i++){
-		c[i] = recD_deluxe[n-i-1]; //store codeword
-		recD[i] = c[i];
+		c[i] = Codeword[n-i-1]; //store codeword
 		std::cout << c[i];
 	}
 	std::cout << std::endl;
+	return Codeword;
 }
 
-void BCH_code::decode_bch() { //FIXME: rewrite the whole function
+std::bitset <GF> BCH_code::decode_bch(const std::bitset <GF> &Received_Codeword) { //FIXME: rewrite the whole function
 /*
 	We do not need the Berlekamp algorithm to decode.
 	We solve before hand two equations in two variables.
 */
+	std::bitset <GF> Decoded_Message = Received_Codeword;
 	int i, j, q;
 	int elp[3] = {0}, s[5] = {0}, s3;
 	int count = 0, syn_error = 0;
@@ -150,7 +158,7 @@ void BCH_code::decode_bch() { //FIXME: rewrite the whole function
 	for (i = 1; i <= 4; i++) {
 		s[i] = 0;
 		for (j = 0; j < n; j++)
-			if (recD[j] != 0)
+			if (Received_Codeword[j] != 0)
 				s[i] ^= alpha_to[(i * j) % n];
 		if (s[i] != 0)
 			syn_error = 1;	/* set flag if non-zero syndrome 
@@ -170,7 +178,7 @@ void BCH_code::decode_bch() { //FIXME: rewrite the whole function
 			if ( s[3] == s3 )  // Was it a single error ? 
 				{
 				std::cout << "One error at " << s[1];
-				recD[s[1]] = recD[s[1]] ^ 1;		// Yes: Correct it 
+				Decoded_Message[s[1]] = Decoded_Message[s[1]] ^ 1;		// Yes: Correct it 
 				}
 			else {				/* Assume two errors occurred and solve
 									for the coefficients of sigma(x), the
@@ -208,7 +216,7 @@ void BCH_code::decode_bch() { //FIXME: rewrite the whole function
 				if (count == 2)	
 				// no. roots = degree of elp hence 2 errors 
 				for (i = 0; i < 2; i++)
-						recD[loc[i]] = recD[loc[i]] ^ 1;
+						Decoded_Message[loc[i]] = Decoded_Message[loc[i]] ^ 1;
 				else	// Cannot solve: Error detection 
 					std::cout << std::endl << "Incomplete decoding";
 				}
@@ -216,10 +224,11 @@ void BCH_code::decode_bch() { //FIXME: rewrite the whole function
 		else if (s[2] != -1) // Error detection 
 			std::cout << std::endl << "Incomplete decoding";
 	}
+	return Decoded_Message;
 }
 
 void BCH_code::verbose_polynomial(const auto &polynomial) { //human readable polynomial format //DONE
-	int power = MSB(polynomial);
+	uint power = MSB(polynomial);
 	unsigned long long mask = pow(2, power);
 	unsigned long long init_mask = mask;
 	while (mask > 0) {
@@ -238,11 +247,11 @@ void BCH_code::verbose_polynomial(const auto &polynomial) { //human readable pol
 	std::cout << std::endl;
 }
 
-int BCH_code::MSB(const auto &polynomial) { //DONE Most Significant Bit
+uint BCH_code::MSB(const auto &polynomial) { //DONE Most Significant Bit
 	return (63 - std::countl_zero(polynomial.to_ullong()));
 }
 
-void BCH_code::divide_polynomials(const std::bitset <GF> &polynomial1, const std::bitset <GF> &polynomial2, std::bitset <GF> &remainder) { //DONE
+std::bitset <GF> BCH_code::divide_polynomials(const std::bitset <GF> &polynomial1, const std::bitset <GF> &polynomial2) { //DONE
 	// 	101 0101 0000 0000 | 1 1101 0001
 	// _________________|________________
 	// 			. . .   |   111 0101 <- quotient
@@ -252,26 +261,29 @@ void BCH_code::divide_polynomials(const std::bitset <GF> &polynomial1, const std
 	// :param polynomial2: 2nd polynomial.
 	// :returns: the quotient and the remainder.
 	//std::bitset <GF> quotient, shifter = 1;
+	std::bitset <GF> remainder;
 	remainder = polynomial1;
 	while (MSB(remainder) >= MSB(polynomial2)) {
 		int shift =  MSB(remainder) - MSB(polynomial2);
 		remainder ^= polynomial2  <<  shift;
 		//quotient ^= shifter  <<  shift;
 	}
+	return remainder;
 }
 
 void BCH_code::multiply_polynomials(auto polynomial1, auto polynomial2, auto &product) { //DONE
 	while (polynomial1 > 0) {
-				if (polynomial1 & 1) {
-					product ^= polynomial2;
-				}
-				polynomial2 <<= 1;
-				polynomial1 >>= 1;
-			}
+		if (polynomial1 & 1) {
+			product ^= polynomial2;
+		}
+		polynomial2 <<= 1;
+		polynomial1 >>= 1;
+	}
 }
 
-void BCH_code::user_input() { //DONE
+std::bitset <GF> BCH_code::user_input(const std::bitset <GF> &Codeword) { //DONE
 	std::cout << std::endl << "Enter the number of errors (choose a number between 1 and 10): " << std::endl;
+	uint numerr;
 	std::cin >> numerr;
 	while (!(numerr >= 1 && numerr <= 10)) {
 		if (!std::cin) {
@@ -284,7 +296,9 @@ void BCH_code::user_input() { //DONE
 		std::cin >> numerr;
 	}
 	std::cout << "Enter the position of errors (choose a number between 0 and 62): " << std::endl;
-	int error_position;
+	uint error_position;
+	unsigned long long shifter = 1;
+	std::bitset <GF> Received_Codeword = Codeword;
 	for (int i = 0; i < numerr; i++) {
 		std::cout << "Position " << i+1 << ":" << std::endl;
 		bool cin_check = false;
@@ -303,8 +317,11 @@ void BCH_code::user_input() { //DONE
 			}
 		}
 		errpos.push_back(error_position);
-		recD[error_position] = recD[error_position] ^ 1;
+		std::cout << "Received_Codeword before " << Received_Codeword << std::endl;
+		Received_Codeword ^= (shifter << (GF-1 - error_position));
+		std::cout << "Received_Codeword after  " << Received_Codeword << std::endl;
 	}
+	return Received_Codeword;
 }
 
 void BCH_code::cin_clean() { //DONE
@@ -312,78 +329,79 @@ void BCH_code::cin_clean() { //DONE
 	std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 }
 
+void BCH_code::print_codeword_and_received_codeword(const std::bitset <GF> &Codeword, const std::bitset <GF> &Received_Codeword) {
+	bool error_pos_show [63] = {false};
+	std::cout << std::endl << "c(x) = "<< Codeword << std::endl;
+	std::cout << std::endl << "r(x) = "<< Received_Codeword << std::endl;
+	for (int i = 0; i < errpos.size(); i++) { //whats happening here?
+		error_pos_show[errpos[i]] = !(error_pos_show[errpos[i]]);
+	}
+	std::cout << "errpos:";
+	for (int i = 0; i < 63; i++) {
+		if (error_pos_show[i]) {
+			std::cout << '^';
+		} else {
+			std::cout << ' ';
+		}
+	}
+	std::cout << std::endl;
+	errpos.clear();
+}
+
+void BCH_code::print_message_and_decoded_message(const std::bitset <GF> &Data, const std::bitset <GF> &Decoded_Data) {
+	std::cout << std::endl << "Results: " << std::endl;
+	std::cout << "Original Data  = " << Data << std::endl;
+
+	std::cout << std::endl << "Recovered Data = " << Decoded_Data << std::endl;
+	// decoding errors: we compare only the Data portion 
+	std::cout << std::endl << "                 ";
+	for (int i=Data.size(); i>=0; i--) {
+		if (Data[i] != Decoded_Data[i]) {
+			decerror++;
+			std::cout << '^';
+		} else {
+			std::cout << ' ';
+	}
+	// for (int i = n - k; i < n; i++) {
+	// 	if (Data[n - i-1] != Received_Codeword[i]) {
+	// 		decerror++;
+	// 		std::cout << '^';
+	// 	} else {
+	// 		std::cout << ' ';
+	// 	}
+	}
+	if (decerror) {
+		std::cout << std::endl << decerror << " Message decoding errors (at ^)\n\n\n";
+		decerror = 0;
+	} else {
+		std::cout << std::endl << "Succesful decoding\n\n\n";
+	}
+}
+
 int main() { //DONE
 	char run_program = 'y';
-	bool error_pos_show [63] = {false};
-	BCH_code BCH_object;
+	BCH_code BCH_obj;
 	while(run_program == 'y') {
 		int seed = 1669581010;  //time(NULL);
 		std::cout << "Seed used: " << seed << std::endl;
 		srand(seed);
-		// Randomly generate Data 
-		for (int i = 0; i < BCH_object.k; i++) {// k = 1
-		 	BCH_object.Data[i] = (rand() % 2);
-		}
-		// ENCODE 
-		BCH_object.encode_bch();
-		// ERRORS
-		BCH_object.user_input(); 
-		std::cout << std::endl << "c(x) = ";
-		for (int i = 0; i < BCH_object.n; i++) {
-			std::cout << BCH_object.c[i];
-		}
-		std::cout << std::endl << "r(x) = ";
-		for (int i = 0; i < BCH_object.n; i++) {
-			std::cout << BCH_object.recD[i];
-		}
-		for (int i = 0; i < BCH_object.errpos.size(); i++) {
-			error_pos_show[BCH_object.errpos[i]] = !(error_pos_show[BCH_object.errpos[i]]);
-		}
-		std::cout << std::endl << "error: ";
-		for (int i = 0; i < 63; i++) {
-			if (error_pos_show[i]) {
-				std::cout << '^';
-			} else {
-				std::cout << ' ';
-			}
-		}
-		for (int i = 0; i < BCH_object.errpos.size(); i++) { //cleanout the array so that in another run we wont have leftover '^'
-			error_pos_show[BCH_object.errpos[i]] = false;
-		}
-		BCH_object.errpos.clear();
-		// DECODE
-		BCH_object.decode_bch();
-		// print out original and decoded Data
-		std::cout << std::endl << "Results: " << std::endl;
-		std::cout << "Original Data  = ";
-		for (int i = BCH_object.k-1; i >= 0; i--) {
-			std::cout << BCH_object.Data[i];
-		}
-		std::cout << std::endl << "Recovered Data = ";
-		for (int i = BCH_object.n - BCH_object.k; i < BCH_object.n; i++) {
-			std::cout << BCH_object.recD[i];
-		}
-		// decoding errors: we compare only the Data portion 
-		std::cout << std::endl << "                 ";
-		for (int i = BCH_object.n - BCH_object.k; i < BCH_object.n; i++) {
-			if (BCH_object.Data[BCH_object.n - i-1] != BCH_object.recD[i]) {
-				BCH_object.decerror++;
-				std::cout << '^';
-			} else {
-				std::cout << ' ';
-			}
-		}
-		if (BCH_object.decerror) {
-			std::cout << std::endl << BCH_object.decerror << " Message decoding errors (at ^)\n\n\n";
-			BCH_object.decerror = 0;
-		} else {
-			std::cout << std::endl << "Succesful decoding\n\n\n";
-		}
+		// Randomly generate message Data
+		auto Data = BCH_obj.generate_data();
+		// ecnode message into polynomial
+		auto Codeword = BCH_obj.encode_bch(Data);
+		// input errors into codeword
+		auto Received_Codeword = BCH_obj.user_input(Codeword);
+		// show codeword and received codeword
+		BCH_obj.print_codeword_and_received_codeword(Codeword, Received_Codeword);
+		// decode received codeword
+		//auto Decoded_Data = BCH_obj.decode_bch(Received_Codeword);
+		// print out orignial message and decoded message
+		//BCH_obj.print_message_and_decoded_message(Data, Decoded_Data);
 		std::cout << "Run program again? (y/n)" << std::endl;
 		std::cin >> run_program;
 		while(!std::cin || run_program != 'y' && run_program != 'n') {
 			std::cout << "Run program again? (y/n)\r" << std::endl;
-			BCH_object.cin_clean();
+			BCH_obj.cin_clean();
 			std::cin >> run_program;
 		}
 	}

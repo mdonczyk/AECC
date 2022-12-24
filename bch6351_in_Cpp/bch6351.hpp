@@ -8,6 +8,10 @@
 #include <bit>
 #include <set>
 
+#define GF 63 // Galois Field --> 2**m - 1 = 2**6 - 1
+#define k 51
+#define n 63
+
 class BCH_code {
 	public:
         BCH_code(){
@@ -19,29 +23,32 @@ class BCH_code {
             auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
             std::cout <<"Count: "<< duration.count() << " microseconds" << std::endl;
         }
-        void encode_bch();
-        void decode_bch();
-        void user_input();
+        std::bitset <GF> generate_data();
+        std::bitset <GF> encode_bch(const std::bitset <GF> &Data);
+        void print_codeword_and_received_codeword(const std::bitset <GF> &Codeword, const std::bitset <GF> &Received_Codeword);
+        void print_message_and_decoded_message(const std::bitset <GF> &Data, const std::bitset <GF> &Decoded_Data);
+        std::bitset <GF> decode_bch(const std::bitset <GF> &Received_Codeword);
+        std::bitset <GF> user_input(const std::bitset <GF> &Codeword);
         void cin_clean();
-        int n = 63, k = 51, c[63] = {0}, recD[63] = {0}, decerror = 0;
-        std::bitset <63> Data;
-        std::vector <int> errpos;
 
     private:
-        int m = 6, t = 2, d = 5, prim_polynomial = 0, numerr;
-		unsigned long long generator_polynomial = 0;
-		std::bitset<7> p;
-		int alpha_to[64] = {0}, index_of[64] = {0}; 
-		std::bitset <63> recD_deluxe;
-		std::vector <int> zeros, g;
-		std::vector <std::vector <int>> zeros_deluxe;;
+        //variables:
+        std::bitset<7> p;
+        uint m = 6, t = 2, d = 5, prim_polynomial = 0;
+        uint alpha_to[64] = {0}, index_of[64] = {0};
+        unsigned long long generator_polynomial = 0;
+		std::vector <int> zeros, g, errpos;
+		std::vector <std::vector <int>> zeros_deluxe;
+        uint c[GF] = {0}, decerror = 0;
+        //functions:
         void read_p();
         void generate_gf();
         void gen_poly();
-        int MSB(const auto &polynomial);
+        uint MSB(const auto &polynomial);
         void verbose_polynomial(const auto &polynomial);
         void multiply_polynomials(auto polynomial1, auto polynomial2, auto &product);
-        void divide_polynomials(const std::bitset <63> &polynomial1, const std::bitset <63> &polynomial2, std::bitset <63> &remainder);
+        std::bitset <GF> divide_polynomials(const std::bitset <GF> &polynomial1, const std::bitset <GF> &polynomial2);
+        //when we have bitset test <8> = 00010101 and want to get 10101 --> test.to_string().substr(8 -test._Find_first()-1)
 };
 		/*
 		block n n = 63 --> 64-1  Gf(2**6)
