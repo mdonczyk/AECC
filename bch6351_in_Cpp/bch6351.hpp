@@ -23,19 +23,18 @@ class BCH_code {
         void decode_bch();
         void user_input();
         void cin_clean();
-        int n = 63, k = 51, c[63], recD[63], decerror = 0;
+        int n = 63, k = 51, c[63] = {0}, recD[63] = {0}, decerror = 0;
         std::bitset <63> Data;
         std::vector <int> errpos;
 
     private:
-        int m = 6, t = 2, d = 5, prim_polynomial = 0;
+        int m = 6, t = 2, d = 5, prim_polynomial = 0, numerr;
 		unsigned long long generator_polynomial = 0;
 		std::bitset<7> p;
 		int alpha_to[64] = {0}, index_of[64] = {0}; 
 		std::bitset <63> recD_deluxe;
 		std::vector <int> zeros, g;
-		std::vector <std::vector <int>> zeros_deluxe;
-		int numerr;
+		std::vector <std::vector <int>> zeros_deluxe;;
         void read_p();
         void generate_gf();
         void gen_poly();
