@@ -377,7 +377,7 @@ int main() {
 	bool error_pos_show [63] = {false};
 	BCH_code BCH_magic;
 	while(run_program == 'y'){
-		int seed = 1669581010;  //time(NULL);
+		int seed = 1669581011;  //time(NULL);
 		cout<<"Seed used: "<<seed<<endl;
 		srand(seed);
 

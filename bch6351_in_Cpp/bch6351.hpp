@@ -27,42 +27,43 @@ class BCH_code {
         std::bitset <GF> encode_bch(const std::bitset <GF> &Data);
         void print_codeword_and_received_codeword(const std::bitset <GF> &Codeword, const std::bitset <GF> &Received_Codeword);
         void print_message_and_decoded_message(const std::bitset <GF> &Data, const std::bitset <GF> &Decoded_Data);
+        std::string print_wihtout_zeros(const std::bitset <GF> &Polynomial, const uint &Not_Zeros);
         std::bitset <GF> decode_bch(const std::bitset <GF> &Received_Codeword);
         std::bitset <GF> user_input(const std::bitset <GF> &Codeword);
         void cin_clean();
 
     private:
         //variables:
-        std::bitset<7> p;
-        uint m = 6, t = 2, d = 5, prim_polynomial = 0;
-        uint alpha_to[64] = {0}, index_of[64] = {0};
-        unsigned long long generator_polynomial = 0;
+        uint m = 6, t = 2, d = 5, primitive_polynomial = 0;
+        uint alpha_poly_from_index[64] = {0}, index_of_alpha_from_poly[64] = {0};
+        uint c[GF] = {0}, decerror = 0;
+        std::bitset <GF> p;
+        std::bitset <GF> generator_polynomial_bitset;
 		std::vector <int> zeros, g, errpos;
 		std::vector <std::vector <int>> zeros_deluxe;
-        uint c[GF] = {0}, decerror = 0;
         //functions:
         void read_p();
         void generate_gf();
         void gen_poly();
-        uint MSB(const auto &polynomial);
-        void verbose_polynomial(const auto &polynomial);
-        void multiply_polynomials(auto polynomial1, auto polynomial2, auto &product);
-        std::bitset <GF> divide_polynomials(const std::bitset <GF> &polynomial1, const std::bitset <GF> &polynomial2);
-        //when we have bitset test <8> = 00010101 and want to get 10101 --> test.to_string().substr(8 -test._Find_first()-1)
+        int MSB(const std::bitset <GF> &polynomial);
+        void verbose_polynomial(const std::bitset <GF> &polynomial);
+        uint multiply_uint_polynomials(uint mulitplicand, uint multiplicator);
+        std::bitset <GF> multiply_bitset_polynomials(const std::bitset <GF> &mulitplicand, const std::bitset <GF> &multiplicator);
+        std::pair<std::bitset <GF>, std::bitset <GF>> divide_bitset_polynomials(const std::bitset <GF> &dividend, const std::bitset <GF> &divisor);
 };
 		/*
 		block n n = 63 --> 64-1  Gf(2**6)
 		generate GF(2**m) from the irreducible polynomial p(X) in p[0]..p[m]
-		lookup tables:  index->polynomial form   power_of_alpha[] contains j=alpha**i;
-		polynomial form -> index form  alpha[j=alpha**i] = i alpha=2 is the
+		lookup tables:  index->polynomial form   power_of_alpha[] contains j=alpha_poly_from_index**i;
+		polynomial form -> index form  alpha_poly_from_index[j=alpha_poly_from_index**i] = i alpha_poly_from_index=2 is the
 		primitive element of GF(2**m) 
 			
 							GF(64) : P(x) = x6 + x4 + x3 + x + 1 = 1011011 = 91
 
-		alpha_to[4] = 16)	         	index_of[4] = 2) 	          	  
+		alpha_poly_from_index[4] = 16)	         	index_of_alpha_from_poly[4] = 2) 	          	  
 -----------------------------------------------------------------------------------------------------------------
-index of alpha:							power of alpha						 |  MINIMAL POLYNOMIAL (addition of all elements in a given cyclotomic set)
-a0	= 1					= 000001		= 1		= a63	= a126	= a189	...	 |  x+1 bo x - a0 = x xor 1 = x + 1 = 0000011
+index of alpha_poly_from_index:							power of alpha_poly_from_index						 |  MINIMAL POLYNOMIAL (addition of all elements in a given cyclotomic set)
+a0	= 1					= 000001		= 1		= a63	= a126	= a189	...	 |  x+1 
 a1	= a	 				= 000010		= 2		= a64	= a127	= a190	...	 |  x6+x4+x3+x+1 = 1011011
 a2	= a2				= 000100		= 4		= a65	= a128	= a191	...	 |  x6+x4+x3+x+1
 a3	= a3				= 001000		= 8		= a66	= a129	= a192	...	 |  x6+x5+x4+x2+1 = 1110101

@@ -204,11 +204,15 @@ decode_bch()
 	int				aux;
 	/* first form the syndromes */
 	printf("s[] = (");
+	printf("\n");
 	for (i = 1; i <= 4; i++) {
 		s[i] = 0;
-		for (j = 0; j < length; j++)
+		for (j = 0; j < length; j++) {
 			if (recd[j] != 0)
 				s[i] ^= alpha_to[(i * j) % n];
+			printf(" %d", s[1]);
+		}
+		printf("\n");
 		if (s[i] != 0)
 			syn_error = 1;	/* set flag if non-zero syndrome */
 							/* NOTE: If only error detection is needed,
@@ -283,12 +287,15 @@ main()
 	generate_gf();			/* generate the Galois Field GF(2**m) */
 	gen_poly();				/* Compute the generator polynomial of BCH code */
 
-	seed = 1;
+	seed = 1669581011; //1669581010
 	srandom(seed);
 	/* Randomly generate DATA */
-	for (i = 0; i < k; i++)
+	printf("Data =             ");
+	for (i = 0; i < k; i++) {
 		data[i] = (random() & 67108864) >> 26;
-
+		printf("%d", data[i]);
+	}
+	printf("\n");
 	/* ENCODE */
 	encode_bch();			/* encode data */
  
