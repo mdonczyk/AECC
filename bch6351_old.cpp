@@ -53,6 +53,16 @@ class BCH_code{
 					rb[0] = 0;
 				}
 			}
+			std::cout<<"Data = ";
+			for (auto const &bit : Data) {
+				std::cout<<bit;
+			}
+			std::cout<<std::endl;
+			std::cout<<"rb = ";
+			for (auto const &bit : rb) {
+				std::cout<<bit;
+			}
+			std::cout<<std::endl;
 		}
 
 		void decode_bch() {
@@ -69,9 +79,13 @@ class BCH_code{
 			cout<<endl<<"s[] = (";
 			for (i = 1; i <= 4; i++) {
 				s[i] = 0;
-				for (j = 0; j < length; j++)
+				for (j = 0; j < length; j++) {
 					if (recD[j] != 0)
 						s[i] ^= alpha_to[(i * j) % n];
+					std::cout<< s[i] << " ";
+				}
+				std::cout<< std::endl;
+				if (s[i] != 0)
 				if (s[i] != 0)
 					syn_error = 1;	/* set flag if non-zero syndrome 
 										NOTE: If only error detection is needed,

@@ -8,6 +8,8 @@
 #include <bit>
 #include <set>
 
+using namespace std;
+
 #define GF 63 // Galois Field --> 2**m - 1 = 2**6 - 1
 #define k 51
 #define n 63
@@ -15,21 +17,21 @@
 class BCH_code {
 	public:
         BCH_code(){
-            auto start = std::chrono::high_resolution_clock::now();
+            auto start = chrono::high_resolution_clock::now();
             read_p();		// read primitive polynomial p(x) 
             generate_gf();	// generate the Galois Field GF(2**m) (GF(64))
             gen_poly();		// Compute the generator polynomial g(x) of BCH code
-            auto stop = std::chrono::high_resolution_clock::now();
-            auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
-            std::cout <<"Count: "<< duration.count() << " microseconds" << std::endl;
+            auto stop = chrono::high_resolution_clock::now();
+            auto duration = chrono::duration_cast<chrono::microseconds>(stop - start);
+            cout <<"Count: "<< duration.count() << " microseconds" << endl;
         }
-        std::bitset <GF> generate_data();
-        std::bitset <GF> encode_bch(const std::bitset <GF> &Data);
-        void print_codeword_and_received_codeword(const std::bitset <GF> &Codeword, const std::bitset <GF> &Received_Codeword);
-        void print_message_and_decoded_message(const std::bitset <GF> &Data, const std::bitset <GF> &Decoded_Data);
-        std::string print_wihtout_zeros(const std::bitset <GF> &Polynomial, const uint &Not_Zeros);
-        std::bitset <GF> decode_bch(const std::bitset <GF> &Received_Codeword);
-        std::bitset <GF> user_input(const std::bitset <GF> &Codeword);
+        bitset <GF> generate_data();
+        bitset <GF> encode_bch(const bitset <GF> &Data);
+        void print_codeword_and_received_codeword(const bitset <GF> &Codeword, const bitset <GF> &Received_Codeword);
+        void print_message_and_decoded_message(const bitset <GF> &Data, const bitset <GF> &Decoded_Data);
+        string print_wihtout_zeros(const bitset <GF> &Polynomial, const uint &Not_Zeros);
+        bitset <GF> decode_bch(const bitset <GF> &Received_Codeword);
+        bitset <GF> user_input(const bitset <GF> &Codeword);
         void cin_clean();
 
     private:
@@ -37,19 +39,19 @@ class BCH_code {
         uint m = 6, t = 2, d = 5, primitive_polynomial = 0;
         uint alpha_poly_from_index[64] = {0}, index_of_alpha_from_poly[64] = {0};
         uint c[GF] = {0}, decerror = 0;
-        std::bitset <GF> p;
-        std::bitset <GF> generator_polynomial_bitset;
-		std::vector <int> zeros, g, errpos;
-		std::vector <std::vector <int>> zeros_deluxe;
+        bitset <GF> p;
+        bitset <GF> generator_polynomial_bitset;
+		vector <int> zeros, g, errpos;
+		vector <vector <int>> zeros_deluxe;
         //functions:
         void read_p();
         void generate_gf();
         void gen_poly();
-        int MSB(const std::bitset <GF> &polynomial);
-        void verbose_polynomial(const std::bitset <GF> &polynomial);
+        int MSB(const bitset <GF> &polynomial);
+        void verbose_polynomial(const bitset <GF> &polynomial);
         uint multiply_uint_polynomials(uint mulitplicand, uint multiplicator);
-        std::bitset <GF> multiply_bitset_polynomials(const std::bitset <GF> &mulitplicand, const std::bitset <GF> &multiplicator);
-        std::pair<std::bitset <GF>, std::bitset <GF>> divide_bitset_polynomials(const std::bitset <GF> &dividend, const std::bitset <GF> &divisor);
+        bitset <GF> multiply_bitset_polynomials(const bitset <GF> &mulitplicand, const bitset <GF> &multiplicator);
+        pair<bitset <GF>, bitset <GF>> divide_bitset_polynomials(const bitset <GF> &dividend, const bitset <GF> &divisor);
 };
 		/*
 		block n n = 63 --> 64-1  Gf(2**6)
@@ -60,9 +62,9 @@ class BCH_code {
 			
 							GF(64) : P(x) = x6 + x4 + x3 + x + 1 = 1011011 = 91
 
-		alpha_poly_from_index[4] = 16)	         	index_of_alpha_from_poly[4] = 2) 	          	  
+		alpha_poly_from_index[4] = 16)	index_of_alpha_from_poly[4] = 2) 	          	  
 -----------------------------------------------------------------------------------------------------------------
-index of alpha_poly_from_index:							power of alpha_poly_from_index						 |  MINIMAL POLYNOMIAL (addition of all elements in a given cyclotomic set)
+index of alpha_poly_from_index:		power of alpha_poly_from_index		     |  MINIMAL POLYNOMIAL (addition of all elements in a given cyclotomic set)
 a0	= 1					= 000001		= 1		= a63	= a126	= a189	...	 |  x+1 
 a1	= a	 				= 000010		= 2		= a64	= a127	= a190	...	 |  x6+x4+x3+x+1 = 1011011
 a2	= a2				= 000100		= 4		= a65	= a128	= a191	...	 |  x6+x4+x3+x+1
