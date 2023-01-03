@@ -13,7 +13,7 @@ int m = 6, n = 63, k = 51, t = 2, d = 5, length = 63, prim_polynomial = 0;
 int p[7]; //irreducible polynomial 
 int alpha_to[64] = {0}, index_of[64] = {0}; 
 int g[13] = {0}, c[63] = {0};
-int recD[63], Data[51], rb[12];
+int recD[63], Data[51] = {0, 0, 1, 1, 1, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0 ,1, 1, 1, 0, 0, 1, 0, 0, 1 ,1, 1, 1, 1, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1 ,0 ,1 ,0, 0}, rb[12];
 int numerr, decerror = 0;
 vector <int> errpos;
 
@@ -64,7 +64,6 @@ class BCH_code{
 			}
 			std::cout<<std::endl;
 		}
-
 		void decode_bch() {
 		/*
 			We do not need the Berlekamp algorithm to decode.
@@ -75,29 +74,39 @@ class BCH_code{
 			int count = 0, syn_error = 0;
 			int loc[3] = {0}, err[3] = {0}, reg[3] = {0};
 			int	aux;
-			// first form the syndromes 
-			cout<<endl<<"s[] = (";
+			// first form the syndromes
+			cout<<endl;
+			for (auto const bit : recD) {
+				cout<<bit;
+			}
+			;
 			for (i = 1; i <= 4; i++) {
 				s[i] = 0;
+				cout<<endl;
 				for (j = 0; j < length; j++) {
-					if (recD[j] != 0)
+					if (recD[j] != 0) {
 						s[i] ^= alpha_to[(i * j) % n];
-					std::cout<< s[i] << " ";
+						// cout<<"a["<<(i * j) % n<<"]="<<alpha_to[(i * j) % n]<<" ";
+						cout<<s[i]<<" ";
+					}
 				}
-				std::cout<< std::endl;
-				if (s[i] != 0)
 				if (s[i] != 0)
 					syn_error = 1;	/* set flag if non-zero syndrome 
 										NOTE: If only error detection is needed,
 										then exit the program here...
 									*/
-				// convert syndrome from polynomial form to index form  
+				// convert syndrome from polynomial form to index form
 				s[i] = index_of[s[i]];
-				if (i<4)
-					cout<<s[i]<<"  ";
-				else
-					cout<<s[i]<<")"<<endl;
 			}
+			// cout<<endl;
+			// for (auto const bit : index_of) {
+			// 	cout<<bit<<" ";
+			// }
+			cout<<endl<<"s[]= ( ";
+			for (int it=1; it<=4; it++) {
+				cout << s[it] << " ";
+			}
+			cout<<")"<<endl;
 			if (syn_error) {	// If there are errors, try to correct them 
 				if (s[1] != -1) {
 					s3 = (s[1] * 3) % n;
@@ -396,9 +405,8 @@ int main() {
 		srand(seed);
 
 		// Randomly generate Data 
-		for (int i = 0; i < k; i++)
-			Data[i] = (rand() % 2);
-
+		// for (int i = 0; i < k; i++)
+		// 	Data[i] = (rand() % 2);
 		// ENCODE 
 		BCH_magic.encode_bch();	// encode Data 
 	

@@ -13,6 +13,7 @@ using namespace std;
 #define GF 63 // Galois Field --> 2**m - 1 = 2**6 - 1
 #define k 51
 #define n 63
+#define t 2
 
 class BCH_code {
 	public:
@@ -36,9 +37,9 @@ class BCH_code {
 
     private:
         //variables:
-        uint m = 6, t = 2, d = 5, primitive_polynomial = 0;
-        uint alpha_poly_from_index[64] = {0}, index_of_alpha_from_poly[64] = {0};
-        uint c[GF] = {0}, decerror = 0;
+        int primitive_polynomial = 0;
+        int alpha_poly_from_index[64] = {0}, index_of_alpha_from_poly[64] = {0};
+        int c[GF] = {0}, decerror = 0;
         bitset <GF> p;
         bitset <GF> generator_polynomial_bitset;
 		vector <int> zeros, g, errpos;
@@ -48,6 +49,7 @@ class BCH_code {
         void generate_gf();
         void gen_poly();
         int MSB(const bitset <GF> &polynomial);
+        vector <int> calculate_syndromes(const bitset <GF> &Received_Codeword, bool &syn_error);
         void verbose_polynomial(const bitset <GF> &polynomial);
         uint multiply_uint_polynomials(uint mulitplicand, uint multiplicator);
         bitset <GF> multiply_bitset_polynomials(const bitset <GF> &mulitplicand, const bitset <GF> &multiplicator);
