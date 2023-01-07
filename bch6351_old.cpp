@@ -12,7 +12,8 @@ using namespace std;
 int m = 6, n = 63, k = 51, t = 2, d = 5, length = 63, prim_polynomial = 0;
 int p[7]; //irreducible polynomial 
 int alpha_to[64] = {0}, index_of[64] = {0}; 
-int g[13] = {0}, c[63] = {0};
+int g[13] = {0};
+int c[63] = {0};
 int recD[63], Data[51] = {0, 0, 1, 1, 1, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0 ,1, 1, 1, 0, 0, 1, 0, 0, 1 ,1, 1, 1, 1, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1 ,0 ,1 ,0, 0}, rb[12];
 int numerr, decerror = 0;
 vector <int> errpos;

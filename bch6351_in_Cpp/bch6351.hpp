@@ -38,7 +38,7 @@ class BCH_code {
     private:
         //variables:
         int primitive_polynomial = 0;
-        int alpha_poly_from_index[64] = {0}, index_of_alpha_from_poly[64] = {0};
+        int alpha_to[n] = {0}, index_of[n] = {0};
         int c[GF] = {0}, decerror = 0;
         bitset <GF> p;
         bitset <GF> generator_polynomial_bitset;
@@ -51,6 +51,8 @@ class BCH_code {
         int MSB(const bitset <GF> &polynomial);
         vector <int> calculate_syndromes(const bitset <GF> &Received_Codeword, bool &syn_error);
         void verbose_polynomial(const bitset <GF> &polynomial);
+        template <size_t N>
+        void reverse_bitset(bitset <N> &polynomial);
         uint multiply_uint_polynomials(uint mulitplicand, uint multiplicator);
         bitset <GF> multiply_bitset_polynomials(const bitset <GF> &mulitplicand, const bitset <GF> &multiplicator);
         pair<bitset <GF>, bitset <GF>> divide_bitset_polynomials(const bitset <GF> &dividend, const bitset <GF> &divisor);

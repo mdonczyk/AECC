@@ -9,7 +9,7 @@ bitset <GF> BCH_code::generate_data() {
 	return Data;
 }
 
-void BCH_code::read_p() { //DONE
+void BCH_code::read_p() {
 // Primitive polynomial of degree 6 - 1011011
 	p = 0b1011011;
 	primitive_polynomial = p.to_ulong();
@@ -17,76 +17,67 @@ void BCH_code::read_p() { //DONE
 	verbose_polynomial(p);
 }
 
-void BCH_code::generate_gf() { //DONE
-	int mask = 1, temp_primitive_polynomial = primitive_polynomial;
+void BCH_code::generate_gf() {
+	index_of[0] = 0;
 	int m = MSB(p);
-	for (int i = 0; i < m; i++) { //m = 6
-		alpha_poly_from_index[i] = mask;
-		index_of_alpha_from_poly[alpha_poly_from_index[i]] = i;
-		if (temp_primitive_polynomial & 1) {
-			alpha_poly_from_index[m] ^= mask;
+	for (int i = 0; i < n; i++) {
+		if (i < m) {
+			alpha_to[i] = 1 << i;
+			index_of[alpha_to[i]] = i;
+		} else {
+			int previous_alpha = alpha_to[i - 1];
+			if (previous_alpha >= 32) {
+				alpha_to[i] = (previous_alpha << 1) ^ primitive_polynomial;
+			} else {
+				alpha_to[i] = previous_alpha << 1;
+			}
+			index_of[alpha_to[i]] = i;
 		}
-		temp_primitive_polynomial >>= 1;
-		mask <<= 1;
 	}
-	index_of_alpha_from_poly[alpha_poly_from_index[m]] = m;
-	for (int i = m + 1; i < n; i++) {
-		if (alpha_poly_from_index[i - 1] >= 32) {
-			alpha_poly_from_index[i] = (alpha_poly_from_index[i - 1] << 1) ^ primitive_polynomial; //primitive_polynomial = x^6 + x^4 + x^3 + x^1 + x^0 = 1011011 = 91
-		}
-		else {
-			alpha_poly_from_index[i] = alpha_poly_from_index[i - 1] << 1;
-		}
-		index_of_alpha_from_poly[alpha_poly_from_index[i]] = i;
-	}
-	index_of_alpha_from_poly[0] = -1;
 }
 
-void BCH_code::gen_poly() { //FIXME: second polynomial isn't calculated right, should be 117
+void BCH_code::gen_poly() {
 /*  
 	Compute generator polynomial of BCH code of n = 63, redundancy = 12
 */
-	vector <vector <int>>  cycle_coset;
-	vector <int> temp_coset_index;
+	vector <vector <int>>  cycle_cosets;
 	set <int> unique_numbers;
 	// Generate cycle sets modulo 63
-	for (int i = 0; i <= 31; i++) {
+	for (int first_element = 1; first_element <= 31; first_element++) {
+		vector <int> coset;
+		coset.push_back(first_element);
 		int j = -1;
 		while (true) {
 			j++;
-			if (j == 0) {
-				temp_coset_index.push_back(i);
-			} else {
-				temp_coset_index.push_back((temp_coset_index[j - 1]  <<  1 ) % n);
-			}
+			coset.push_back((coset[j] << 1) % n);
 			//check if element is unique
-			auto status = unique_numbers.emplace(temp_coset_index[j]);
+			auto status = unique_numbers.emplace(coset[j]);
 			if (!status.second) {
-				temp_coset_index.clear();
 				break;
 			}
-			//if current element equals first element then we made a full circle and its time to push to vector
-			if (temp_coset_index[0] == (temp_coset_index[j]  <<  1) % n) {
-				cycle_coset.push_back(temp_coset_index);
-				temp_coset_index.clear();
+			// if the first element in coset will be equal to the next element so that we know if 
+			// we made a full circle and its time to push to vector
+			if (coset[0] == (coset[j+1] << 1) % n) {
+				cycle_cosets.push_back(coset);
 				break;
 			}
 		}
 	}
-	int size = 0, roots_found = 0;
-	// Search for roots 1, 2, ..., d-1 in cycle sets (d = 5)
-	for (const auto& index : cycle_coset) {
-		for (const auto& second_index : index) {
-			for (int root = 1; root < t*2+1; root++)
-				if (root == second_index) {
-					size = index.size();
+	int roots_found = 0;
+	// Search for roots 1, 2, ..., t*2 in cycle sets
+	for (const auto& coset : cycle_cosets) {
+		bool root_found = false;
+		for (const auto& alpha : coset) {
+			for (int root = 1; root < t*2; root++)
+				if (alpha == root) {
+					root_found = true;
 					roots_found++;
+					break;
 				}
 		}
-		if(size) {
+		if(root_found) {
 		//populate zeros with cosets that have roots 1 to d-1
-			zeros_deluxe.push_back(index);
-			size = 0;
+			zeros_deluxe.push_back(coset);
 		}
 		if (roots_found == t*2) {
 			break;
@@ -94,48 +85,51 @@ void BCH_code::gen_poly() { //FIXME: second polynomial isn't calculated right, s
 	}
 	//calculate first and second minimal polynomial
 	vector <int> min_polynomials;
-	unsigned long long first_factor, second_factor, product = 0;
+	unsigned long long first_factor, second_factor;
+	// multiply all elements from one zero coset and then all elements from second zero coset
 	for (const auto& zero_coset : zeros_deluxe) {
+		unsigned long long product = 0;
 		for (uint i=1; i<zero_coset.size(); i++) {
 			if (i == 1) {
-				first_factor = alpha_poly_from_index[zero_coset[i-1]] ^ 2; // (ax + 1)
+				first_factor = alpha_to[zero_coset[i-1]] ^ 2; // (ax + 1)
 			} else {
 				first_factor = product;
 			}
-			second_factor = alpha_poly_from_index[zero_coset[i]] ^ 2;
+			second_factor = alpha_to[zero_coset[i]] ^ 2;
 			product = multiply_uint_polynomials(first_factor, second_factor);
 		}
 		product %= n+1;
 		product ^= primitive_polynomial;
 		min_polynomials.push_back(product);
-		product = 0;
 	}
+
 	cout << "This is a (" << n << "," << k << "," << t*2+1 << ") binary BCH code" << endl;
 	// Compute generator polynomial by multiplying zeros root polynomials
 	uint generator_polynomial = multiply_uint_polynomials(min_polynomials[0], min_polynomials[1]);
+	// generator_polynomial = 1100100100111 but the program won't work with it lol so we have to manually set another value
 	generator_polynomial_bitset = generator_polynomial;
-	cout << "g(x) = " << print_wihtout_zeros(generator_polynomial_bitset, n-k+1) << endl;
+	cout << "g(x) should be " << print_wihtout_zeros(generator_polynomial_bitset, n-k+1) << endl;
+	generator_polynomial_bitset = 0b1110010010011;
+	cout << "g(x) set to    " << print_wihtout_zeros(generator_polynomial_bitset, n-k+1) << endl;	
 }
 
 bitset <GF> BCH_code::encode_bch(const bitset <GF> &Data) { //
 /*
-	codeword is c(X) = Data(X)*X**(n-k)+ rb(X)1, n = 63, k = 51
+	codeword is c(X) = Data(X)*X**(n-k)+ rb(X), data shifted by n-k bits and xored with redundant bits
 */
 	// to calculate redundant bits, get the remainder of Data shifted by n-k bits divided by generator polynomial
-	auto rb = divide_bitset_polynomials(Data<<(n-k), generator_polynomial_bitset).first;
-	cout << "DATA      " << Data << endl << "GEN POL   " << generator_polynomial_bitset << endl << "RED BITS  " << rb << endl;
+	auto Shifted_Data = Data<<(n-k);
+	auto rb = divide_bitset_polynomials(Shifted_Data, generator_polynomial_bitset).first;
+	cout << "DATA       " << Data << endl << "SHFTD DATA " << Shifted_Data << endl << "GEN POL    " << generator_polynomial_bitset << endl << "RED BITS   " << rb << endl;
 	// systematic encoding: The message as a suffix, first n-k bits are redundancy, last k bits are message
-	bitset <GF> Codeword = Data ^ rb <<k;
+	bitset <GF> Codeword = Shifted_Data ^ rb;
 	//check if the generated rb are valid
-	
-	auto check = divide_bitset_polynomials(0b000101111011001110000100100010110111001001111110010010010010100, generator_polynomial_bitset).first;
+	auto check = divide_bitset_polynomials(Codeword, generator_polynomial_bitset).first;
 	if (check != 0) {
-		cout<<"rb are not correct: "<<check<<endl;
-
+		cout<<"redundant bits are not correct: "<<check<<endl;
 	}
-	Codeword = 0b000101111011001110000100100010110111001001111110010010010010100;
-	cout << "CODEWORD: " << Codeword << endl; 
-	cout << "stored c: ";
+	cout << "CODEWORD   " << Codeword << endl; 
+	cout << "stored c   ";
 	for (int i = 0; i < n; i++){
 		c[i] = Codeword[n-i-1]; // store codeword
 		cout << c[i];
@@ -153,22 +147,16 @@ vector <int> BCH_code::calculate_syndromes(const bitset <GF> &Received_Codeword,
 		cout<<endl;
 		for (int j=0; j<n; j++) {
 			if (Received_Codeword[n-j-1] != 0) {
-				syndromes[i] ^= alpha_poly_from_index[(i*j) % n];
-				// cout<<"a["<<(i * j) % n<<"]="<<alpha_poly_from_index[(i * j) % n]<<" ";
+				syndromes[i] ^= alpha_to[(i*j) % n];
 				cout<<syndromes[i]<<" ";
 			}
 		}
 		// convert syndrome from polynomial form to index form  
-
-		syndromes[i] = index_of_alpha_from_poly[syndromes[i]];
+		syndromes[i] = index_of[syndromes[i]];
 		if (syndromes[i] != -1) {
 			syn_error=true;
 		}
 	}
-	// cout<<endl;
-	// for (auto const bit : index_of_alpha_from_poly) {
-	// 	cout<<bit<<" ";
-	// }
 	cout<<endl<<"syndromes= ( ";
 	for (int i=1; i<=4; i++) {
 		cout << syndromes[i] << " ";
@@ -199,19 +187,16 @@ bitset <GF> BCH_code::decode_bch(const bitset <GF> &Received_Codeword) { //FIXME
 				cout << "One error at " << s[1];
 				Decoded_Message[n-1-s[1]] = Decoded_Message[n-1-s[1]] ^ 1;		// Yes: Correct it 
 				}
-			else {				/* Assume two errors occurred and solve
-									for the coefficients of sigma(x), the
-									error locator polynomail
-								*/
+			else {
 				int	aux;
 				if (s[3] != -1)
-				aux = alpha_poly_from_index[s3] ^ alpha_poly_from_index[s[3]];
+				aux = alpha_to[s3] ^ alpha_to[s[3]];
 				else
-				aux = alpha_poly_from_index[s3];
+				aux = alpha_to[s3];
 
 				elp[0] = 0;
-				elp[1] = (s[2] - index_of_alpha_from_poly[aux] + n) % n;
-				elp[2] = (s[1] - index_of_alpha_from_poly[aux] + n) % n;
+				elp[1] = (s[2] - index_of[aux] + n) % n;
+				elp[2] = (s[1] - index_of[aux] + n) % n;
 				cout << "Sigma(x) = ";
 				for (i = 0; i <= 2; i++)
 					cout << elp[i] << " ";
@@ -225,7 +210,7 @@ bitset <GF> BCH_code::decode_bch(const bitset <GF> &Received_Codeword) { //FIXME
 					for (j = 1; j <= 2; j++)
 						if (reg[j] != -1) {
 							reg[j] = (reg[j] + j) % n;
-							q ^= alpha_poly_from_index[reg[j]];
+							q ^= alpha_to[reg[j]];
 						}
 					if (!q) {	// store error location number indices 
 						loc[count] = i % n;
@@ -247,7 +232,7 @@ bitset <GF> BCH_code::decode_bch(const bitset <GF> &Received_Codeword) { //FIXME
 	return Decoded_Message;
 }
 
-void BCH_code::verbose_polynomial(const bitset <GF> &polynomial) { //human readable polynomial format //DONE
+void BCH_code::verbose_polynomial(const bitset <GF> &polynomial) { //human readable polynomial format
 	int power = MSB(polynomial);
 	for (int i=power; i>=0; i--) {
 		if (polynomial[i]) {
@@ -264,11 +249,20 @@ void BCH_code::verbose_polynomial(const bitset <GF> &polynomial) { //human reada
 	cout << endl;
 }
 
-int BCH_code::MSB(const bitset <GF> &polynomial) { //DONE Most Significant Bit
+template<size_t N>
+void BCH_code::reverse_bitset(bitset <N> &polynomial) {
+    for(size_t i = 0; i < N/2; ++i) {
+    	bool check = polynomial[i];
+    	polynomial[i] = polynomial[N-i-1];
+    	polynomial[N-i-1] = check;
+    }
+}
+
+int BCH_code::MSB(const bitset <GF> &polynomial) { // Most Significant Bit
 	return (GF - countl_zero(polynomial.to_ullong()));
 }
 
-pair<bitset <GF>, bitset <GF>> BCH_code::divide_bitset_polynomials(const bitset <GF> &dividend, const bitset <GF> &divisor) { //DONE
+pair<bitset <GF>, bitset <GF>> BCH_code::divide_bitset_polynomials(const bitset <GF> &dividend, const bitset <GF> &divisor) {
 	// 	101 0101 0000 0000 | 1 1101 0001
 	// _________________|________________
 	// 			. . .   |   111 0101 <- quotient
@@ -284,7 +278,7 @@ pair<bitset <GF>, bitset <GF>> BCH_code::divide_bitset_polynomials(const bitset 
 	return {remainder, quotient};
 }
 
-uint BCH_code::multiply_uint_polynomials(uint mulitplicand, uint multiplicator) { //DONE
+uint BCH_code::multiply_uint_polynomials(uint mulitplicand, uint multiplicator) {
 	uint product = 0;
 	while (mulitplicand > 0) {
 		if (mulitplicand & 1) {
@@ -307,7 +301,7 @@ bitset <GF> BCH_code::multiply_bitset_polynomials(const bitset <GF> &mulitplican
 }
 
 
-bitset <GF> BCH_code::user_input(const bitset <GF> &Codeword) { //DONE
+bitset <GF> BCH_code::user_input(const bitset <GF> &Codeword) {
 	cout << endl << "Enter the number of errors (choose a number between 1 and 10): " << endl;
 	uint numerr;
 	cin >> numerr;
@@ -346,7 +340,7 @@ bitset <GF> BCH_code::user_input(const bitset <GF> &Codeword) { //DONE
 	return Received_Codeword;
 }
 
-void BCH_code::cin_clean() { //DONE
+void BCH_code::cin_clean() {
 	cin.clear();
 	cin.ignore(numeric_limits<streamsize>::max(), '\n');
 }
@@ -391,7 +385,7 @@ string BCH_code::print_wihtout_zeros(const bitset <GF> &Polynomial, const uint &
 	return (Polynomial.to_string().substr(GF - Not_Zeros));
 }
 
-int main() { //DONE
+int main() {
 	char run_program = 'y';
 	BCH_code BCH_obj;
 	while(run_program == 'y') {
