@@ -280,7 +280,7 @@ decode_bch()
 }
 
 
-int main()
+main()
 {
 	int             i;
 	read_p();				/* read generator polynomial g(x) */
