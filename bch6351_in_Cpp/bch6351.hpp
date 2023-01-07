@@ -14,6 +14,7 @@ using namespace std;
 #define k 51
 #define n 63
 #define t 2
+typedef unsigned long long ULL;
 
 class BCH_code {
 	public:

@@ -3,7 +3,7 @@ using namespace std;
 
 bitset <GF> BCH_code::generate_data() {
 	bitset <GF> Data;
-	for (int i = 0; i < k; i++) {// k = 1
+	for (int i = 0; i < k; i++) {
 		Data[i] = (rand() % 2);
 	}
 	return Data;
@@ -63,7 +63,6 @@ void BCH_code::gen_poly() {
 			}
 		}
 	}
-	int roots_found = 0;
 	// Search for roots 1, 2, ..., t*2 in cycle sets
 	for (const auto& coset : cycle_cosets) {
 		bool root_found = false;
@@ -71,27 +70,27 @@ void BCH_code::gen_poly() {
 			for (int root = 1; root < t*2; root++)
 				if (alpha == root) {
 					root_found = true;
-					roots_found++;
 					break;
 				}
+			if(root_found) { break;}
 		}
 		if(root_found) {
 		//populate zeros with cosets that have roots 1 to d-1
 			zeros_deluxe.push_back(coset);
 		}
-		if (roots_found == t*2) {
+		if (zeros_deluxe.size() == t) {
 			break;
 		}
 	}
 	//calculate first and second minimal polynomial
 	vector <int> min_polynomials;
-	unsigned long long first_factor, second_factor;
+	ULL first_factor, second_factor;
 	// multiply all elements from one zero coset and then all elements from second zero coset
 	for (const auto& zero_coset : zeros_deluxe) {
-		unsigned long long product = 0;
+		ULL product = 0;
 		for (uint i=1; i<zero_coset.size(); i++) {
 			if (i == 1) {
-				first_factor = alpha_to[zero_coset[i-1]] ^ 2; // (ax + 1)
+				first_factor = alpha_to[zero_coset[i-1]] ^ 2; // (ax + x)
 			} else {
 				first_factor = product;
 			}
@@ -109,11 +108,13 @@ void BCH_code::gen_poly() {
 	// generator_polynomial = 1100100100111 but the program won't work with it lol so we have to manually set another value
 	generator_polynomial_bitset = generator_polynomial;
 	cout << "g(x) should be " << print_wihtout_zeros(generator_polynomial_bitset, n-k+1) << endl;
-	generator_polynomial_bitset = 0b1110010010011;
-	cout << "g(x) set to    " << print_wihtout_zeros(generator_polynomial_bitset, n-k+1) << endl;	
+	bitset <13> reversed_generator_polynomial_bitset = generator_polynomial;
+	reverse_bitset(reversed_generator_polynomial_bitset);
+	generator_polynomial_bitset = reversed_generator_polynomial_bitset.to_ullong();
+	cout << "g(x) set to    " << print_wihtout_zeros(generator_polynomial_bitset, n-k+1) << endl;
 }
 
-bitset <GF> BCH_code::encode_bch(const bitset <GF> &Data) { //
+bitset <GF> BCH_code::encode_bch(const bitset <GF> &Data) {
 /*
 	codeword is c(X) = Data(X)*X**(n-k)+ rb(X), data shifted by n-k bits and xored with redundant bits
 */
@@ -128,7 +129,7 @@ bitset <GF> BCH_code::encode_bch(const bitset <GF> &Data) { //
 	if (check != 0) {
 		cout<<"redundant bits are not correct: "<<check<<endl;
 	}
-	cout << "CODEWORD   " << Codeword << endl; 
+	cout << "CODEWORD   " << Codeword << endl;
 	cout << "stored c   ";
 	for (int i = 0; i < n; i++){
 		c[i] = Codeword[n-i-1]; // store codeword
@@ -151,9 +152,9 @@ vector <int> BCH_code::calculate_syndromes(const bitset <GF> &Received_Codeword,
 				cout<<syndromes[i]<<" ";
 			}
 		}
-		// convert syndrome from polynomial form to index form  
+		// convert syndrome from polynomial form to index form
 		syndromes[i] = index_of[syndromes[i]];
-		if (syndromes[i] != -1) {
+		if (syndromes[i] != 0) {
 			syn_error=true;
 		}
 	}
@@ -170,64 +171,64 @@ bitset <GF> BCH_code::decode_bch(const bitset <GF> &Received_Codeword) { //FIXME
 	We do not need the Berlekamp algorithm to decode.
 	We solve before hand two equations in two variables.
 */
-// syndrome calculation --> error-location block
 	bitset <63> Decoded_Message = Received_Codeword;
-	int i, j, q;
-	int elp[3] = {0}, s[5] = {0}, s3;
-	int count = 0;
 	bool syn_error;
+	int i, j, q;
+	int elp[3] = {0};
 	int loc[3] = {0}, err[3] = {0}, reg[3] = {0};
 	// first form the syndromes
-	calculate_syndromes(Received_Codeword, syn_error);
-	if (syn_error) {	// If there are errors, try to correct them 
-		if (s[1] != -1) {
-			s3 = (s[1] * 3) % n;
-			if ( s[3] == s3 )  // Was it a single error ? 
-				{
-				cout << "One error at " << s[1];
-				Decoded_Message[n-1-s[1]] = Decoded_Message[n-1-s[1]] ^ 1;		// Yes: Correct it 
-				}
-			else {
-				int	aux;
-				if (s[3] != -1)
-				aux = alpha_to[s3] ^ alpha_to[s[3]];
-				else
-				aux = alpha_to[s3];
+	auto s = calculate_syndromes(Received_Codeword, syn_error);
+	if (syn_error) { // If there are errors, try to correct them
+		int single_error_check = (s[1] * 4) % n;
+		if ( s[4] == single_error_check) { // Was it a single error ?
+			cout << "One error at " << s[1];
+			Decoded_Message[n-1-s[1]] = Decoded_Message[n-1-s[1]] ^ 1; // Yes: Correct it
+		} else {
+			int	aux;
+			if (s[4] != -1) {
+				aux = alpha_to[single_error_check] ^ alpha_to[s[4]];
+			} else {
+				aux = alpha_to[single_error_check];
+			}
+			elp[0] = 0;
+			elp[1] = (s[2] - index_of[aux] + n) % n;
+			elp[2] = (s[1] - index_of[aux] + n) % n;
 
-				elp[0] = 0;
-				elp[1] = (s[2] - index_of[aux] + n) % n;
-				elp[2] = (s[1] - index_of[aux] + n) % n;
-				cout << "Sigma(x) = ";
-				for (i = 0; i <= 2; i++)
-					cout << elp[i] << " ";
-				cout << endl << "Roots: ";
-				// find roots of the error location polynomial 
-				for (i = 1; i <= 2; i++)
-					reg[i] = elp[i];
-				count = 0;
-				for (i = GF; i >= 1; i--) { // Chien search 
-					q = 1;
-					for (j = 1; j <= 2; j++)
-						if (reg[j] != -1) {
-							reg[j] = (reg[j] + j) % n;
-							q ^= alpha_to[reg[j]];
-						}
-					if (!q) {	// store error location number indices 
-						loc[count] = i % n;
-						count++;
-						cout << (i%n) << " ";
+			cout << "Sigma(x) = ";
+			for (i = 0; i <= 2; i++) {
+				cout << elp[i] << " ";
+			}
+			cout << endl << "Roots: ";
+			// find roots of the error location polynomial
+			for (i = 1; i <= 2; i++) {
+				reg[i] = elp[i];
+			}
+			int count = 0;
+			for (i = GF; i >= 1; i--) { // Chien search
+				q = 1;
+				for (j = 1; j <= 2; j++) {
+					if (reg[j] != -1) {
+						reg[j] = (reg[j] + j) % n;
+						q ^= alpha_to[reg[j]];
 					}
 				}
-				if (count == 2)	
-				// no. roots = degree of elp hence 2 errors 
-				for (i = 0; i < 2; i++)
-						Decoded_Message[n-1-loc[i]] = Decoded_Message[n-1-loc[i]] ^ 1;
-				else	// Cannot solve: Error detection 
-					cout << endl << "Incomplete decoding";
+				if (!q) { // store error location number indices
+					loc[count] = i % n;
+					count++;
+					cout << (i%n) << " ";
 				}
 			}
-		else if (s[2] != -1) // Error detection 
-			cout << endl << "Incomplete decoding";
+			if (count == 2) {
+			// no roots = degree of elp hence 2 errors
+				for (i = 0; i < 2; i++) {
+						Decoded_Message[n-1-loc[i]] = Decoded_Message[n-1-loc[i]] ^ 1;
+				}
+			} else { // Cannot solve: Error detection
+				cout << endl << "Incomplete decoding";
+			}
+		}
+	} else {
+		cout << "No errors found";
 	}
 	return Decoded_Message;
 }
@@ -362,11 +363,11 @@ void BCH_code::print_codeword_and_received_codeword(const bitset <GF> &Codeword,
 void BCH_code::print_message_and_decoded_message(const bitset <GF> &Data, const bitset <GF> &Decoded_Data) {
 	cout << endl << "Results: " << endl;
 	cout << "Original Data  = " << print_wihtout_zeros(Data, k) << endl;
-	cout << "Recovered Data = " << print_wihtout_zeros(Decoded_Data, k) << endl;
+	cout << "Recovered Data = " << print_wihtout_zeros(Decoded_Data>>(n-k), k) << endl;
 	// decoding errors: we compare only the Data portion 
 	cout << "                 ";
 	for (int i=k-1; i >=0; i--) { //compare only message bits
-		if (Data[i] != Decoded_Data[i]) {
+		if (Data[i] != Decoded_Data[i+(n-k)]) {
 			decerror++;
 			cout << '^';
 		} else {
@@ -374,10 +375,10 @@ void BCH_code::print_message_and_decoded_message(const bitset <GF> &Data, const 
 		}
 	}
 	if (decerror) {
-		cout << endl << "Position of " << decerror << " message decoding errors (at ^)\n\n\n";
+		cout << endl << "Position of " << decerror << " message decoding errors (at ^)\n";
 		decerror = 0;
 	} else {
-		cout << endl << "Succesful decoding\n\n\n";
+		cout << endl << "Succesful decoding\n";
 	}
 }
 
