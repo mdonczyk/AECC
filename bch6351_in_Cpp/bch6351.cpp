@@ -173,9 +173,6 @@ bitset <GF> BCH_code::decode_bch(const bitset <GF> &Received_Codeword) { //FIXME
 */
 	bitset <63> Decoded_Message = Received_Codeword;
 	bool syn_error;
-	int i, j, q;
-	int elp[3] = {0};
-	int loc[3] = {0}, err[3] = {0}, reg[3] = {0};
 	// first form the syndromes
 	auto s = calculate_syndromes(Received_Codeword, syn_error);
 	if (syn_error) { // If there are errors, try to correct them
@@ -184,6 +181,7 @@ bitset <GF> BCH_code::decode_bch(const bitset <GF> &Received_Codeword) { //FIXME
 			cout << "One error at " << s[1];
 			Decoded_Message[n-1-s[1]] = Decoded_Message[n-1-s[1]] ^ 1; // Yes: Correct it
 		} else {
+			int elp[3] = {0}, loc[3] = {0}, reg[3] = {0};
 			int	aux;
 			if (s[4] != -1) {
 				aux = alpha_to[single_error_check] ^ alpha_to[s[4]];
@@ -195,18 +193,18 @@ bitset <GF> BCH_code::decode_bch(const bitset <GF> &Received_Codeword) { //FIXME
 			elp[2] = (s[1] - index_of[aux] + n) % n;
 
 			cout << "Sigma(x) = ";
-			for (i = 0; i <= 2; i++) {
+			for (int i = 0; i <= 2; i++) {
 				cout << elp[i] << " ";
 			}
 			cout << endl << "Roots: ";
 			// find roots of the error location polynomial
-			for (i = 1; i <= 2; i++) {
+			for (int i = 1; i <= 2; i++) {
 				reg[i] = elp[i];
 			}
 			int count = 0;
-			for (i = GF; i >= 1; i--) { // Chien search
-				q = 1;
-				for (j = 1; j <= 2; j++) {
+			for (int i = GF; i >= 1; i--) { // Chien search
+				int q = 1;
+				for (int j = 1; j <= 2; j++) {
 					if (reg[j] != -1) {
 						reg[j] = (reg[j] + j) % n;
 						q ^= alpha_to[reg[j]];
@@ -220,7 +218,7 @@ bitset <GF> BCH_code::decode_bch(const bitset <GF> &Received_Codeword) { //FIXME
 			}
 			if (count == 2) {
 			// no roots = degree of elp hence 2 errors
-				for (i = 0; i < 2; i++) {
+				for (int i = 0; i < 2; i++) {
 						Decoded_Message[n-1-loc[i]] = Decoded_Message[n-1-loc[i]] ^ 1;
 				}
 			} else { // Cannot solve: Error detection
