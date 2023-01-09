@@ -103,15 +103,18 @@ void BCH_code::gen_poly() {
 	}
 
 	cout << "This is a (" << n << "," << k << "," << t*2+1 << ") binary BCH code" << endl;
+
 	// Compute generator polynomial by multiplying zeros root polynomials
 	uint generator_polynomial = multiply_uint_polynomials(min_polynomials[0], min_polynomials[1]);
+
 	// generator_polynomial = 1100100100111 but the program won't work with it lol so we have to manually set another value
 	generator_polynomial_bitset = generator_polynomial;
 	cout << "g(x) should be " << print_wihtout_zeros(generator_polynomial_bitset, n-k+1) << endl;
+
 	bitset <13> reversed_generator_polynomial_bitset = generator_polynomial;
 	reverse_bitset(reversed_generator_polynomial_bitset);
 	generator_polynomial_bitset = reversed_generator_polynomial_bitset.to_ullong();
-	cout << "g(x) set to    " << print_wihtout_zeros(generator_polynomial_bitset, n-k+1) << endl;
+	cout << "g(x) is set to " << print_wihtout_zeros(generator_polynomial_bitset, n-k+1) << endl;
 }
 
 bitset <GF> BCH_code::encode_bch(const bitset <GF> &Data) {
@@ -123,18 +126,13 @@ bitset <GF> BCH_code::encode_bch(const bitset <GF> &Data) {
 	auto rb = divide_bitset_polynomials(Shifted_Data, generator_polynomial_bitset).first;
 	cout << "DATA       " << Data << endl << "SHFTD DATA " << Shifted_Data << endl << "GEN POL    " << generator_polynomial_bitset << endl << "RED BITS   " << rb << endl;
 	// systematic encoding: The message as a suffix, first n-k bits are redundancy, last k bits are message
-	bitset <GF> Codeword = Shifted_Data ^ rb;
+	bitset <GF> Codeword = Data ^ rb << (k);
 	//check if the generated rb are valid
 	auto check = divide_bitset_polynomials(Codeword, generator_polynomial_bitset).first;
 	if (check != 0) {
 		cout<<"redundant bits are not correct: "<<check<<endl;
 	}
 	cout << "CODEWORD   " << Codeword << endl;
-	cout << "stored c   ";
-	for (int i = 0; i < n; i++){
-		c[i] = Codeword[n-i-1]; // store codeword
-		cout << c[i];
-	}
 	cout << endl;
 	return Codeword;
 }
@@ -171,55 +169,57 @@ bitset <GF> BCH_code::decode_bch(const bitset <GF> &Received_Codeword) { //FIXME
 	We do not need the Berlekamp algorithm to decode.
 	We solve before hand two equations in two variables.
 */
-	bitset <63> Decoded_Message = Received_Codeword;
+	bitset <GF> Decoded_Message = Received_Codeword;
 	bool syn_error;
 	// first form the syndromes
 	auto s = calculate_syndromes(Received_Codeword, syn_error);
-	if (syn_error) { // If there are errors, try to correct them
-		int single_error_check = (s[1] * 4) % n;
-		if ( s[4] == single_error_check) { // Was it a single error ?
+	if (syn_error) {
+		// Check if there was only one error
+		int single_error_check = (s[1] * 3) % n;
+		if (s[3] == single_error_check) { 
 			cout << "One error at " << s[1];
-			Decoded_Message[n-1-s[1]] = Decoded_Message[n-1-s[1]] ^ 1; // Yes: Correct it
+			Decoded_Message.flip(n-1-s[1]);
 		} else {
-			int elp[3] = {0}, loc[3] = {0}, reg[3] = {0};
-			int	aux;
-			if (s[4] != -1) {
-				aux = alpha_to[single_error_check] ^ alpha_to[s[4]];
-			} else {
-				aux = alpha_to[single_error_check];
-			}
-			elp[0] = 0;
-			elp[1] = (s[2] - index_of[aux] + n) % n;
-			elp[2] = (s[1] - index_of[aux] + n) % n;
+			vector <int> error_locator_polynomial;
+			int reg[3] = {0};
+			vector <int> error_locations;
+			int	aux = alpha_to[single_error_check] ^ alpha_to[s[3]];
+
+			// Form error location polynomial
+			error_locator_polynomial.push_back(0);
+			error_locator_polynomial.push_back((s[2] - index_of[aux] + n) % n);
+			error_locator_polynomial.push_back((s[1] - index_of[aux] + n) % n);
 
 			cout << "Sigma(x) = ";
 			for (int i = 0; i <= 2; i++) {
-				cout << elp[i] << " ";
+				cout << error_locator_polynomial[i] << " ";
 			}
-			cout << endl << "Roots: ";
-			// find roots of the error location polynomial
+			// Find roots of the error location polynomial
 			for (int i = 1; i <= 2; i++) {
-				reg[i] = elp[i];
+				reg[i] = error_locator_polynomial[i];
 			}
-			int count = 0;
-			for (int i = GF; i >= 1; i--) { // Chien search
+
+			// Chien search
+			cout << endl << "Roots: ";
+			for (int i = 1; i <= n; i++) {
 				int q = 1;
 				for (int j = 1; j <= 2; j++) {
-					if (reg[j] != -1) {
-						reg[j] = (reg[j] + j) % n;
-						q ^= alpha_to[reg[j]];
-					}
+					reg[j] = (reg[j] + j) % n;
+					q ^= alpha_to[reg[j]];
 				}
-				if (!q) { // store error location number indices
-					loc[count] = i % n;
-					count++;
-					cout << (i%n) << " ";
+
+				// Store error location number indices
+				if (!q) {
+					error_locations.push_back(i);
+					cout << error_locations.back() << " ";
 				}
 			}
-			if (count == 2) {
-			// no roots = degree of elp hence 2 errors
-				for (int i = 0; i < 2; i++) {
-						Decoded_Message[n-1-loc[i]] = Decoded_Message[n-1-loc[i]] ^ 1;
+			
+			// If there were only 2 erros, correct them thanks to saved error locations
+			if (error_locations.size() == 2) {
+			// no roots = degree of error_locator_polynomial hence 2 errors
+				for (auto const& error_location : error_locations) {
+					Decoded_Message.flip(n-1-error_location);
 				}
 			} else { // Cannot solve: Error detection
 				cout << endl << "Incomplete decoding";
@@ -251,14 +251,14 @@ void BCH_code::verbose_polynomial(const bitset <GF> &polynomial) { //human reada
 template<size_t N>
 void BCH_code::reverse_bitset(bitset <N> &polynomial) {
     for(size_t i = 0; i < N/2; ++i) {
-    	bool check = polynomial[i];
+    	bool temp_bit = polynomial[i];
     	polynomial[i] = polynomial[N-i-1];
-    	polynomial[N-i-1] = check;
+    	polynomial[N-i-1] = temp_bit;
     }
 }
 
 int BCH_code::MSB(const bitset <GF> &polynomial) { // Most Significant Bit
-	return (GF - countl_zero(polynomial.to_ullong()));
+	return (n - countl_zero(polynomial.to_ullong()));
 }
 
 pair<bitset <GF>, bitset <GF>> BCH_code::divide_bitset_polynomials(const bitset <GF> &dividend, const bitset <GF> &divisor) {
@@ -272,7 +272,7 @@ pair<bitset <GF>, bitset <GF>> BCH_code::divide_bitset_polynomials(const bitset 
  	while (MSB(remainder) >= MSB(divisor)) {
 		int shift =  MSB(remainder) - MSB(divisor);
 		remainder ^= divisor  <<  shift;
-		quotient ^= 1ULL  <<  shift;
+		quotient.flip(shift); 
 	}
 	return {remainder, quotient};
 }
@@ -334,7 +334,7 @@ bitset <GF> BCH_code::user_input(const bitset <GF> &Codeword) {
 			cin_check = true;
 			}
 		}
-		Received_Codeword ^= (1ULL << (n-1 - error_position));
+		Received_Codeword.flip(n - 1 - error_position);
 	}
 	return Received_Codeword;
 }
@@ -361,11 +361,11 @@ void BCH_code::print_codeword_and_received_codeword(const bitset <GF> &Codeword,
 void BCH_code::print_message_and_decoded_message(const bitset <GF> &Data, const bitset <GF> &Decoded_Data) {
 	cout << endl << "Results: " << endl;
 	cout << "Original Data  = " << print_wihtout_zeros(Data, k) << endl;
-	cout << "Recovered Data = " << print_wihtout_zeros(Decoded_Data>>(n-k), k) << endl;
+	cout << "Recovered Data = " << print_wihtout_zeros(Decoded_Data, k) << endl;
 	// decoding errors: we compare only the Data portion 
 	cout << "                 ";
 	for (int i=k-1; i >=0; i--) { //compare only message bits
-		if (Data[i] != Decoded_Data[i+(n-k)]) {
+		if (Data[i] != Decoded_Data[i]) {
 			decerror++;
 			cout << '^';
 		} else {

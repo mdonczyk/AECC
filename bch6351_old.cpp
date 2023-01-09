@@ -120,11 +120,8 @@ class BCH_code{
 											for the coefficients of sigma(x), the
 											error locator polynomail
 										*/
-						if (s[3] != -1)
-						aux = alpha_to[s3] ^ alpha_to[s[3]];
-						else
-						aux = alpha_to[s3];
 
+						aux = alpha_to[s3] ^ alpha_to[s[3]];
 						elp[0] = 0;
 						elp[1] = (s[2] - index_of[aux] + n) % n;
 						elp[2] = (s[1] - index_of[aux] + n) % n;
@@ -138,11 +135,13 @@ class BCH_code{
 						count = 0;
 						for (i = 1; i <= 63; i++) { // Chien search 
 							q = 1;
-							for (j = 1; j <= 2; j++)
+							for (j = 1; j <= 2; j++) {
+								cout <<"reg["<<j<<"] = "<< reg[j]<< endl;
 								if (reg[j] != -1) {
 									reg[j] = (reg[j] + j) % n;
 									q ^= alpha_to[reg[j]];
 								}
+							}
 							if (!q) {	// store error location number indices 
 								loc[count] = i % n;
 								count++;
