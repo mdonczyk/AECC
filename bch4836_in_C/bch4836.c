@@ -187,6 +187,11 @@ encode_bch()
 			bb[0] = 0;
 		};
 	};
+	printf("rb:\n");
+	for (int i=0; i<12; i++) {
+		printf("%d",bb[i]);
+	}
+	printf("\n");
 };
 
 
@@ -203,14 +208,14 @@ decode_bch()
 	int             loc[3], err[3], reg[3];
 	int				aux;
 	/* first form the syndromes */
-	printf("s[] = (");
 	printf("\n");
 	for (i = 1; i <= 4; i++) {
 		s[i] = 0;
 		for (j = 0; j < length; j++) {
-			if (recd[j] != 0)
+			if (recd[j] != 0) {
 				s[i] ^= alpha_to[(i * j) % n];
-			printf(" %d", s[1]);
+				printf(" %d", s[i]);
+			}
 		}
 		printf("\n");
 		if (s[i] != 0)
@@ -220,8 +225,11 @@ decode_bch()
 							 */
 		/* convert syndrome from polynomial form to index form  */
 		s[i] = index_of[s[i]];
-		printf("%3d ", s[i]);
 	};
+	printf("s[] = (");
+	for (int i=1; i<=4; i++) {
+		printf("%d ", s[i]);
+	}
 	printf(")\n");
 	if (syn_error) {	/* If there are errors, try to correct them */
 		if (s[1] != -1) {

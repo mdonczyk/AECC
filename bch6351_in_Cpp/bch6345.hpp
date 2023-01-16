@@ -11,14 +11,14 @@
 using namespace std;
 
 #define GF 63 // Galois Field --> 2**m - 1 = 2**6 - 1
-#define k 51
+#define k 45
 #define n 63
-#define t 2
+#define t 3
 typedef unsigned long long ULL;
 
-class BCH_code {
+class BCH_code_hard {
 	public:
-        BCH_code(){
+        BCH_code_hard(){
             auto start = chrono::high_resolution_clock::now();
             read_p();		// read primitive polynomial p(x) 
             generate_gf();	// generate the Galois Field GF(2**m) (GF(64))

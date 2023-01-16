@@ -1,7 +1,7 @@
-#include "bch6351.hpp"
+#include "bch6345.hpp"
 using namespace std;
 
-bitset <n> BCH_code::generate_data() {
+bitset <n> BCH_code_hard::generate_data() {
 	bitset <n> Data;
 	for (int i = 0; i < k; i++) {
 		Data[i] = (rand() % 2);
@@ -9,7 +9,7 @@ bitset <n> BCH_code::generate_data() {
 	return Data;
 }
 
-void BCH_code::read_p() {
+void BCH_code_hard::read_p() {
 // Primitive polynomial of degree 6 - 1011011
 	p = 0b1011011;
 	primitive_polynomial = p.to_ulong();
@@ -17,7 +17,7 @@ void BCH_code::read_p() {
 	verbose_polynomial(p);
 }
 
-void BCH_code::generate_gf() {
+void BCH_code_hard::generate_gf() {
 	index_of[0] = -1;
 	int m = MSB(p);
 	for (int i = 0; i < GF; i++) {
@@ -36,7 +36,7 @@ void BCH_code::generate_gf() {
 	}
 }
 
-void BCH_code::gen_poly() {
+void BCH_code_hard::gen_poly() {
 /*  
 	Compute generator polynomial of BCH code of n(2**6)
 */
@@ -120,7 +120,7 @@ void BCH_code::gen_poly() {
 	cout << "g(x) is set to " << print_wihtout_zeros(generator_polynomial_bitset, n-k+1) << endl;
 }
 
-bitset <n> BCH_code::encode_bch(const bitset <n> &Data) {
+bitset <n> BCH_code_hard::encode_bch(const bitset <n> &Data) {
 /*
 	codeword is c(X) = Data(X)*X**(n-k)+ rb(X), data shifted by n-k bits and xored with redundant bits
 */
@@ -140,7 +140,7 @@ bitset <n> BCH_code::encode_bch(const bitset <n> &Data) {
 	return Codeword;
 }
 
-vector <int> BCH_code::calculate_syndromes(const bitset <n> &Received_Codeword, bool &syn_error) {
+vector <int> BCH_code_hard::calculate_syndromes(const bitset <n> &Received_Codeword, bool &syn_error) {
 	vector <int> syndromes(2*t);
 	cout<<endl;
 	cout << Received_Codeword ;
@@ -167,7 +167,7 @@ vector <int> BCH_code::calculate_syndromes(const bitset <n> &Received_Codeword, 
 	return syndromes;
 }
 
-bitset <n> BCH_code::decode_bch(const bitset <n> &Received_Codeword) { //FIXME: rewrite the whole function
+bitset <n> BCH_code_hard::decode_bch(const bitset <n> &Received_Codeword) { //FIXME: rewrite the whole function
 /*
 	We do not need the Berlekamp algorithm to decode.
 	We solve before hand two equations in two variables.
@@ -235,7 +235,7 @@ bitset <n> BCH_code::decode_bch(const bitset <n> &Received_Codeword) { //FIXME: 
 	return Decoded_Message;
 }
 
-void BCH_code::verbose_polynomial(const bitset <n> &polynomial) { //human readable polynomial format
+void BCH_code_hard::verbose_polynomial(const bitset <n> &polynomial) { //human readable polynomial format
 	int power = MSB(polynomial);
 	for (int i=power; i>=0; i--) {
 		if (polynomial[i]) {
@@ -253,7 +253,7 @@ void BCH_code::verbose_polynomial(const bitset <n> &polynomial) { //human readab
 }
 
 template<size_t N>
-void BCH_code::reverse_bitset(bitset <N> &polynomial, int shift) {
+void BCH_code_hard::reverse_bitset(bitset <N> &polynomial, int shift) {
     for(size_t i = 0; i < N/2; ++i) {
     	bool temp_bit = polynomial[i];
     	polynomial[i] = polynomial[N-i-1];
@@ -263,11 +263,11 @@ void BCH_code::reverse_bitset(bitset <N> &polynomial, int shift) {
 }
 
 template <size_t N>
-int BCH_code::MSB(const bitset <N> &polynomial) { // Most Significant Bit
+int BCH_code_hard::MSB(const bitset <N> &polynomial) { // Most Significant Bit
 	return (N + (GF-N) - countl_zero(polynomial.to_ullong()));
 }
 
-pair<bitset <n>, bitset <n>> BCH_code::divide_bitset_polynomials(const bitset <n> &dividend, const bitset <n> &divisor) {
+pair<bitset <n>, bitset <n>> BCH_code_hard::divide_bitset_polynomials(const bitset <n> &dividend, const bitset <n> &divisor) {
 	// 	101 0101 0000 0000 | 1 1101 0001
 	// _________________|________________
 	// 			. . .   |   111 0101 <- quotient
@@ -283,7 +283,7 @@ pair<bitset <n>, bitset <n>> BCH_code::divide_bitset_polynomials(const bitset <n
 	return {remainder, quotient};
 }
 
-uint BCH_code::multiply_uint_polynomials(uint mulitplicand, uint multiplicator) {
+uint BCH_code_hard::multiply_uint_polynomials(uint mulitplicand, uint multiplicator) {
 	uint product = 0;
 	while (mulitplicand > 0) {
 		if (mulitplicand & 1) {
@@ -295,7 +295,7 @@ uint BCH_code::multiply_uint_polynomials(uint mulitplicand, uint multiplicator) 
 	return product;
 }
 
-bitset <n> BCH_code::multiply_bitset_polynomials(const bitset <n> &mulitplicand, const bitset <n> &multiplicator) {
+bitset <n> BCH_code_hard::multiply_bitset_polynomials(const bitset <n> &mulitplicand, const bitset <n> &multiplicator) {
 	bitset <n> product;
 	for (int i = 0; i < n; ++i) {
 		if (multiplicator[i]) {
@@ -306,7 +306,7 @@ bitset <n> BCH_code::multiply_bitset_polynomials(const bitset <n> &mulitplicand,
 }
 
 
-bitset <n> BCH_code::user_input(const bitset <n> &Codeword) {
+bitset <n> BCH_code_hard::user_input(const bitset <n> &Codeword) {
 	cout << endl << "Enter the number of errors (choose a number between 1 and 10): " << endl;
 	uint numerr;
 	cin >> numerr;
@@ -345,12 +345,12 @@ bitset <n> BCH_code::user_input(const bitset <n> &Codeword) {
 	return Received_Codeword;
 }
 
-void BCH_code::cin_clean() {
+void BCH_code_hard::cin_clean() {
 	cin.clear();
 	cin.ignore(numeric_limits<streamsize>::max(), '\n');
 }
 
-void BCH_code::print_codeword_and_received_codeword(const bitset <n> &Codeword, const bitset <n> &Received_Codeword) {
+void BCH_code_hard::print_codeword_and_received_codeword(const bitset <n> &Codeword, const bitset <n> &Received_Codeword) {
 	cout << "c(x) = "<< Codeword << endl;
 	cout << "r(x) = "<< Received_Codeword << endl;
 	cout <<"       ";
@@ -364,7 +364,7 @@ void BCH_code::print_codeword_and_received_codeword(const bitset <n> &Codeword, 
 	cout << endl << "Positions of errors in the received codeword (at ^)" << endl;
 }
 
-void BCH_code::print_message_and_decoded_message(const bitset <n> &Data, const bitset <n> &Decoded_Data) {
+void BCH_code_hard::print_message_and_decoded_message(const bitset <n> &Data, const bitset <n> &Decoded_Data) {
 	cout << endl << "Results: " << endl;
 	cout << "Original Data  = " << print_wihtout_zeros(Data, k) << endl;
 	cout << "Recovered Data = " << print_wihtout_zeros(Decoded_Data>>(n-k), k) << endl;
@@ -378,13 +378,13 @@ void BCH_code::print_message_and_decoded_message(const bitset <n> &Data, const b
 	}
 }
 
-string BCH_code::print_wihtout_zeros(const bitset <n> &Polynomial, const uint &Not_Zeros) {
+string BCH_code_hard::print_wihtout_zeros(const bitset <n> &Polynomial, const uint &Not_Zeros) {
 	return (Polynomial.to_string().substr(n - Not_Zeros));
 }
 
 int main() {
 	char run_program = 'y';
-	BCH_code BCH_obj;
+	BCH_code_hard BCH_obj;
 	while(run_program == 'y') {
 		int seed = 1669581011;  //time(NULL);
 		cout << "Seed used: " << seed << endl;
