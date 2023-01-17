@@ -82,12 +82,7 @@ void BCH_code_hard::gen_poly() {
 			break;
 		}
 	}
-	for (auto const &zero_coset : zeros_deluxe) {
-			for (auto const & zero : zero_coset) {
-				cout<<zero<<" ";
-			}
-			cout<<endl;
-		}
+
 	//calculate first and second minimal polynomial
 	vector <int> min_polynomials;
 	ULL first_factor, second_factor;
@@ -112,8 +107,10 @@ void BCH_code_hard::gen_poly() {
 	cout << "This is a (" << n << "," << k << "," << t*2+1 << ") binary BCH code" << endl;
 
 	// Compute generator polynomial by multiplying zeros root polynomials
-	uint generator_polynomial = multiply_uint_polynomials(min_polynomials[0], min_polynomials[1]);
-
+	uint generator_polynomial = min_polynomials[0];
+	for (uint i=1; i<min_polynomials.size(); i++) {
+		generator_polynomial =  multiply_uint_polynomials(generator_polynomial, min_polynomials[i]);
+	}
 	// generator_polynomial = 1100100100111 but the program won't work with it lol so we have to manually set another value
 	generator_polynomial_bitset = generator_polynomial;
 	reverse_bitset(generator_polynomial_bitset, k-1);
@@ -142,8 +139,6 @@ bitset <n> BCH_code_hard::encode_bch(const bitset <n> &Data) {
 
 vector <int> BCH_code_hard::calculate_syndromes(const bitset <n> &Received_Codeword, bool &syn_error) {
 	vector <int> syndromes(2*t);
-	cout<<endl;
-	cout << Received_Codeword ;
 	for (int i=1; i<=2*t; i++) {
 		syndromes[i] = 0;
 		cout<<endl;
@@ -183,45 +178,41 @@ bitset <n> BCH_code_hard::decode_bch(const bitset <n> &Received_Codeword) { //FI
 			cout << "One error at " << s[1];
 			Decoded_Message.flip(n-1-s[1]);
 		} else {
-			vector <int> error_locator_polynomial;
-			int reg[3] = {0};
+			vector <int> err_loc_pol_coeffs;
 			vector <int> error_locations;
 			
 			int	aux = alpha_to[single_error_check] ^ alpha_to[s[3]];
 
 			// Form error location polynomial
-			error_locator_polynomial.push_back(0);
-			error_locator_polynomial.push_back((s[2] - index_of[aux] + GF) % GF);
-			error_locator_polynomial.push_back((s[1] - index_of[aux] + GF) % GF);
+			err_loc_pol_coeffs.push_back(1); // The coefficient of x0 is always 1 for any error-location polynomial, and thus is considered atrivial coefficient
+			err_loc_pol_coeffs.push_back((s[3] - index_of[aux] + GF) % GF);
+			err_loc_pol_coeffs.push_back((s[2] - index_of[aux] + GF) % GF);
+			err_loc_pol_coeffs.push_back((s[1] - index_of[aux] + GF) % GF);
 
 			cout << "Sigma(x) = ";
-			for (int i = 0; i <= 2; i++) {
-				cout << error_locator_polynomial[i] << " ";
+			for (int i = 0; i <= t; i++) {
+				cout << err_loc_pol_coeffs[i] << " ";
 			}
-			// Find roots of the error location polynomial
-			for (int i = 1; i <= 2; i++) {
-				reg[i] = error_locator_polynomial[i];
-			}
-
+			// Find roots of the error location polynomial:
 			// Chien search
 			cout << endl << "Roots: ";
 			for (int i = 1; i <= GF; i++) {
 				int q = 1;
-				for (int j = 1; j <= 2; j++) {
-					reg[j] = (reg[j] + j) % GF;
-					q ^= alpha_to[reg[j]];
+				for (int j = 1; j <= t; j++) {
+					err_loc_pol_coeffs[j] = (err_loc_pol_coeffs[j] + j) % GF;
+					q ^= alpha_to[err_loc_pol_coeffs[j]];
 				}
 
 				// Store error location number indices
 				if (!q) {
-					error_locations.push_back(i % n);
+					error_locations.push_back(i % GF);
 					cout << error_locations.back() << " ";
 				}
 			}
 
 			// If there were only 2 erros, correct them thanks to saved error locations
-			if (error_locations.size() == 2) {
-			// no roots = degree of error_locator_polynomial hence 2 errors
+			if (error_locations.size() == t) {
+			// no roots = degree of err_loc_pol_coeffs hence 2 errors
 				for (auto const& error_location : error_locations) {
 					Decoded_Message.flip(n-1-error_location);
 				}
