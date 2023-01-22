@@ -276,9 +276,7 @@ void
 decode_bch()
 /*
  * Simon Rockliff's implementation of Berlekamp's algorithm.
- *
  * Assume we have received bits in recd[i], i=0..(n-1).
- *
  * Compute the 2*t syndromes by substituting alpha^i into rec(X) and
  * evaluating, storing the syndromes in s[i], i=1..2t (leave s[0] zero) .
  * Then we use the Berlekamp algorithm to find the error location polynomial

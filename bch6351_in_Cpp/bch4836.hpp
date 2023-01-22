@@ -39,7 +39,7 @@ class BCH_code_short {
     private:
         //variables:
         int primitive_polynomial = 0;
-        int alpha_to[GF] = {0}, index_of[GF] = {0}, decerror = 0;
+        int alpha_to[GF] = {0}, index_of[GF] = {0};
         bitset <n> p;
         bitset <n> generator_polynomial_bitset;
 		vector <int> zeros, g, errpos;
