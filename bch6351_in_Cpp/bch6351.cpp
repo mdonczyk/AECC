@@ -138,12 +138,12 @@ bitset <n> BCH_code::encode_bch(const bitset <n> &Data) {
 }
 
 vector <int> BCH_code::calculate_syndromes(const bitset <n> &Received_Codeword, bool &syn_error) {
-	vector <int> syndromes(2*t);
+	vector <int> syndromes(2*t+1);
 	for (int i=1; i<=2*t; i++) {
 		syndromes[i] = 0;
 		cout<<endl;
 		for (int j=0; j<n; j++) {
-			if (Received_Codeword[n-j-1] != 0) {
+			if (Received_Codeword[n-1-j] != 0) {
 				syndromes[i] ^= alpha_to[(i*j) % GF];
 				cout<<syndromes[i]<<" ";
 			}
@@ -167,21 +167,20 @@ bitset <n> BCH_code::decode_bch(const bitset <n> &Received_Codeword) { //FIXME: 
 	We do not need the Berlekamp algorithm to decode.
 	We solve before hand two equations in two variables.
 */
-	bitset <n> Decoded_Message = Received_Codeword;
 	bool syn_error;
 	// first form the syndromes
 	auto s = calculate_syndromes(Received_Codeword, syn_error);
+	bitset <n> Decoded_Message = Received_Codeword;
 	if (syn_error) {
 		// Check if there was only one error
-		int single_error_check = (s[1] * 3) % GF;
-		if (s[3] == single_error_check) { 
+		if (s[3] == (s[1] * 3) % GF) {
 			cout << "One error at " << s[1];
 			Decoded_Message.flip(n-1-s[1]);
 		} else {
 			vector <int> err_loc_pol_coeffs;
 			vector <int> error_locations;
 			
-			int	aux = alpha_to[single_error_check] ^ alpha_to[s[3]];
+			int	aux = alpha_to[(s[1] * 3) % GF] ^ alpha_to[s[3]];
 
 			// Form error location polynomial
 			err_loc_pol_coeffs.push_back(1); // The coefficient of x0 is always 1 for any error-location polynomial, and thus is considered atrivial coefficient
@@ -341,9 +340,9 @@ void BCH_code::cin_clean() {
 }
 
 void BCH_code::print_codeword_and_received_codeword(const bitset <n> &Codeword, const bitset <n> &Received_Codeword) {
-	cout << "c(x) = "<< Codeword << endl;
-	cout << "r(x) = "<< Received_Codeword << endl;
-	cout <<"       ";
+	cout << "c(x) = MSB "<< Codeword << " LSB" << endl;
+	cout << "r(x) = MSB "<< Received_Codeword << " LSB" << endl;
+	cout <<"           ";
 	for (int i=n-1; i >=0; i--) {
 		if (Codeword[i] != Received_Codeword[i]) {
 			cout << '^';
@@ -356,11 +355,11 @@ void BCH_code::print_codeword_and_received_codeword(const bitset <n> &Codeword, 
 
 void BCH_code::print_message_and_decoded_message(const bitset <n> &Data, const bitset <n> &Decoded_Data) {
 	cout << endl << "Results: " << endl;
-	cout << "Original Data  = " << print_wihtout_zeros(Data, k) << endl;
-	cout << "Recovered Data = " << print_wihtout_zeros(Decoded_Data>>(n-k), k) << endl;
+	cout << "Original Data  = MSB " << print_wihtout_zeros(Data, k) << " LSB" << endl;
+	cout << "Recovered Data = MSB " << print_wihtout_zeros(Decoded_Data>>(n-k), k) << " LSB" << endl;
 	// decoding errors: we compare only the Data portion 
 	bitset <n> test = Data ^ (Decoded_Data >> (n-k));
-	cout<<"                 "<<(test.to_string(' ','^')).substr(n-k)<<endl;
+	cout<<"                     "<<(test.to_string(' ','^')).substr(n-k)<<endl;
 	if (test.count()) {
 		cout <<"Position of " << test.count() << " message decoding errors (at ^)\n";
 	} else {

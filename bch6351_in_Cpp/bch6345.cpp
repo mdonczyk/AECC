@@ -167,58 +167,151 @@ bitset <n> BCH_code_hard::decode_bch(const bitset <n> &Received_Codeword) { //FI
 	We do not need the Berlekamp algorithm to decode.
 	We solve before hand two equations in two variables.
 */
-	bitset <n> Decoded_Message = Received_Codeword;
 	bool syn_error;
 	// first form the syndromes
 	auto s = calculate_syndromes(Received_Codeword, syn_error);
+	bitset <n> Decoded_Message = Received_Codeword;
 	if (syn_error) {
 		// Check if there was only one error
 		int single_error_check = (s[1] * 3) % GF;
-		if (s[3] == single_error_check) { 
+		if (s[3] == single_error_check) {
 			cout << "One error at " << s[1];
 			Decoded_Message.flip(n-1-s[1]);
 		} else {
-			vector <int> err_loc_pol_coeffs;
-			vector <int> error_locations;
-			
-			int	aux = alpha_to[single_error_check] ^ alpha_to[s[3]];
+					/*
+		 * Compute the error location polynomial via the Berlekamp
+		 * iterative algorithm. Following the terminology of Lin and
+		 * Costello's book :   d[u] is the 'mu'th discrepancy, where
+		 * u='mu'+1 and 'mu' (the Greek letter!) is the step number
+		 * ranging from -1 to 2*t (see L&C),  l[u] is the degree of
+		 * the elp at that step, and u_l[u] is the difference between
+		 * the step number and the degree of the elp. 
+		 */
+		/* initialise table entries */
 
-			// Form error location polynomial
-			err_loc_pol_coeffs.push_back(1); // The coefficient of x0 is always 1 for any error-location polynomial, and thus is considered atrivial coefficient
-			err_loc_pol_coeffs.push_back((s[3] - index_of[aux] + GF) % GF);
-			err_loc_pol_coeffs.push_back((s[2] - index_of[aux] + GF) % GF);
-			err_loc_pol_coeffs.push_back((s[1] - index_of[aux] + GF) % GF);
-
-			cout << "Sigma(x) = ";
-			for (int i = 0; i <= t; i++) {
-				cout << err_loc_pol_coeffs[i] << " ";
-			}
-			// Find roots of the error location polynomial:
-			// Chien search
-			cout << endl << "Roots: ";
-			for (int i = 1; i <= GF; i++) {
-				int q = 1;
-				for (int j = 1; j <= t; j++) {
-					err_loc_pol_coeffs[j] = (err_loc_pol_coeffs[j] + j) % GF;
-					q ^= alpha_to[err_loc_pol_coeffs[j]];
+		int i, j, u, q, t2, count = 0;
+		int elp[1026][1024], d[1026], l[1026], u_lu[1026], s[1025];
+		int  root[200], loc[200], err[1024], reg[201];
+		d[0] = 0;			/* index form */
+		d[1] = s[1];		/* index form */
+		elp[0][0] = 0;		/* index form */
+		elp[1][0] = 1;		/* polynomial form */
+		for (int i = 1; i < 2*t; i++) {
+			elp[0][i] = -1;	/* index form */
+			elp[1][i] = 0;	/* polynomial form */
+		}
+		l[0] = 0;
+		l[1] = 0;
+		u_lu[0] = -1;
+		u_lu[1] = 0;
+		u = 0;
+			do {
+			u++;
+			if (d[u] == -1) {
+				l[u + 1] = l[u];
+				for (i = 0; i <= l[u]; i++) {
+					elp[u + 1][i] = elp[u][i];
+					elp[u][i] = index_of[elp[u][i]];
 				}
-
-				// Store error location number indices
-				if (!q) {
-					error_locations.push_back(i % GF);
-					cout << error_locations.back() << " ";
+			} else
+				/*
+				 * search for words with greatest u_lu[q] for
+				 * which d[q]!=0 
+				 */
+				{
+				q = u - 1;
+				while ((d[q] == -1) && (q > 0))
+					q--;
+				/* have found first non-zero d[q]  */
+				if (q > 0) {
+				  j = q;
+				  do {
+				    j--;
+				    if ((d[j] != -1) && (u_lu[q] < u_lu[j]))
+				      q = j;
+				  } while (j > 0);
+				}
+ 
+				/*
+				 * have now found q such that d[u]!=0 and
+				 * u_lu[q] is maximum 
+				 */
+				/* store degree of new elp polynomial */
+				if (l[u] > l[q] + u - q)
+					l[u + 1] = l[u];
+				else
+					l[u + 1] = l[q] + u - q;
+ 
+				/* form new elp(x) */
+				for (i = 0; i < 2*t; i++)
+					elp[u + 1][i] = 0;
+				for (i = 0; i <= l[q]; i++)
+					if (elp[q][i] != -1)
+						elp[u + 1][i + u - q] = 
+                                   alpha_to[(d[u] + n - d[q] + elp[q][i]) % n];
+				for (i = 0; i <= l[u]; i++) {
+					elp[u + 1][i] ^= elp[u][i];
+					elp[u][i] = index_of[elp[u][i]];
 				}
 			}
-
-			// If there were only 2 erros, correct them thanks to saved error locations
-			if (error_locations.size() == t) {
-			// no roots = degree of err_loc_pol_coeffs hence 2 errors
-				for (auto const& error_location : error_locations) {
-					Decoded_Message.flip(n-1-error_location);
-				}
-			} else { // Cannot solve: Error detection
-				cout << endl << "Incomplete decoding";
+			u_lu[u + 1] = u - l[u + 1];
+ 
+			/* form (u+1)th discrepancy */
+			if (u < 2*t) {	
+			/* no discrepancy computed on last iteration */
+			  if (s[u + 1] != -1)
+			    d[u + 1] = alpha_to[s[u + 1]];
+			  else
+			    d[u + 1] = 0;
+			    for (i = 1; i <= l[u + 1]; i++)
+			      if ((s[u + 1 - i] != -1) && (elp[u + 1][i] != 0))
+			        d[u + 1] ^= alpha_to[(s[u + 1 - i] 
+			                      + index_of[elp[u + 1][i]]) % n];
+			  /* put d[u+1] into index form */
+			  d[u + 1] = index_of[d[u + 1]];	
 			}
+		} while ((u < 2*t) && (l[u + 1] <= t));
+ 
+		u++;
+		if (l[u] <= t) {/* Can correct errors */
+			/* put elp into index form */
+			for (i = 0; i <= l[u]; i++)
+				elp[u][i] = index_of[elp[u][i]];
+
+			printf("sigma(x) = ");
+			for (i = 0; i <= l[u]; i++)
+				printf("%3d ", elp[u][i]);
+			printf("\n");
+			printf("Roots: ");
+
+			/* Chien search: find roots of the error location polynomial */
+			for (int i = 1; i <= l[u]; i++)
+				reg[i] = elp[u][i];
+			count = 0;
+			for (int i = 1; i <= n; i++) {
+				q = 1;
+				for (int j = 1; j <= l[u]; j++)
+					if (reg[j] != -1) {
+						reg[j] = (reg[j] + j) % n;
+						q ^= alpha_to[reg[j]];
+					}
+				if (!q) {	/* store root and error
+						 * location number indices */
+					root[count] = i;
+					loc[count] = n - i;
+					count++;
+					printf("%3d ", n - i);
+				}
+			}
+			printf("\n");
+			if (count == l[u])	
+			/* no. roots = degree of elp hence <= t errors */
+				for (i = 0; i < l[u]; i++)
+					Decoded_Message.flip(loc[i]);
+			else	/* elp has degree >t hence cannot solve */
+				printf("Incomplete decoding: errors detected\n");
+		}
+		
 		}
 	} else {
 		cout << "No errors found";
