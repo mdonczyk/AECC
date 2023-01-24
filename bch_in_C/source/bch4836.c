@@ -41,7 +41,7 @@ read_p()
 /* Primitive polynomial of degree 6 */
 {
 	register int    i;
-    p[0] = p[1] = p[6] = 1; p[2] = p[3] = p[4] = p[5] =0;
+    p[0] = p[1] = p[3] = p[4] = p[6] = 1; p[2] =  p[5] =0;
 }
 
 

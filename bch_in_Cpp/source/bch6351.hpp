@@ -11,17 +11,17 @@
 using namespace std;
 
 #define GF 63 // Galois Field --> 2**m - 1 = 2**6 - 1
-#define k 36
-#define n 48
+#define n 63
 #define t 2
+#define k 51
 typedef unsigned long long ULL;
 
-class BCH_code_short {
+class BCH_code_long_t2 {
 	public:
-        BCH_code_short(){
+        BCH_code_long_t2(){
             auto start = chrono::high_resolution_clock::now();
             read_p();		// read primitive polynomial p(x) 
-            generate_gf();	// generate the Galois Field n(2**m) (n(64))
+            generate_gf();	// generate the Galois Field GF(2**m) (GF(64))
             gen_poly();		// Compute the generator polynomial g(x) of BCH code
             auto stop = chrono::high_resolution_clock::now();
             auto duration = chrono::duration_cast<chrono::microseconds>(stop - start);
@@ -59,13 +59,13 @@ class BCH_code_short {
         pair<bitset <n>, bitset <n>> divide_bitset_polynomials(const bitset <n> &dividend, const bitset <n> &divisor);
 };
 		/*
-		block n n = 63 --> 64-1  n(2**6)
-		generate n(2**m) from the irreducible polynomial p(X) in p[0]..p[m]
+		block n n = 63 --> 64-1  Gf(2**6)
+		generate GF(2**m) from the irreducible polynomial p(X) in p[0]..p[m]
 		lookup tables:  index->polynomial form   power_of_alpha[] contains j=alpha_poly_from_index**i;
 		polynomial form -> index form  alpha_poly_from_index[j=alpha_poly_from_index**i] = i alpha_poly_from_index=2 is the
-		primitive element of n(2**m) 
+		primitive element of GF(2**m) 
 			
-							n(64) : P(x) = x6 + x4 + x3 + x + 1 = 1011011 = 91
+							GF(64) : P(x) = x6 + x4 + x3 + x + 1 = 1011011 = 91
 
 		alpha_poly_from_index[4] = 16)	index_of_alpha_from_poly[4] = 2) 	          	  
 -----------------------------------------------------------------------------------------------------------------

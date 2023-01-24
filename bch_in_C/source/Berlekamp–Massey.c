@@ -1,27 +1,73 @@
-// ------------------------------------------------------------------------
-//        File: bch_bm.c
-//        Date: April 3, 2002
-// Description: An encoder/decoder for binary BCH codes
-//              Error correction using the BERLEKAMP-MASSEY ALGORITHM
-// ------------------------------------------------------------------------
-// This program is complementary material for the book:
-//
-// R.H. Morelos-Zaragoza, The Art of Error Correcting Coding, Wiley, 2002.
-//
-// ISBN 0471 49581 6
-//
-// This and other programs are available at http://the-art-of-ecc.com
-//
-// You may use this program for academic and personal purposes only. 
-// If this program is used to perform simulations whose results are 
-// published in a journal or book, please refer to the book above.
-//
-// The use of this program in a commercial product requires explicit 
-// written permission from the author. The author is not responsible or 
-// liable for damage or loss that may be caused by the use of this program. 
-//
-// Copyright (c) 2002. Robert H. Morelos-Zaragoza. All rights reserved.
-// ------------------------------------------------------------------------
+/*
+ * File:    bch3.c
+ * Title:   Encoder/decoder for binary BCH codes in C (Version 3.1)
+ * Author:  Robert Morelos-Zaragoza
+ * Date:    August 1994
+ * Revised: June 13, 1997
+ *
+ * ===============  Encoder/Decoder for binary BCH codes in C =================
+ *
+ * Version 1:   Original program. The user provides the generator polynomial
+ *              of the code (cumbersome!).
+ * Version 2:   Computes the generator polynomial of the code.
+ * Version 3:   No need to input the coefficients of a primitive polynomial of
+ *              degree m, used to construct the Galois Field GF(2**m). The
+ *              program now works for any binary BCH code of length such that:
+ *              2**(m-1) - 1 < length <= 2**m - 1
+ *
+ * Note:        You may have to change the size of the arrays to make it work.
+ *
+ * The encoding and decoding methods used in this program are based on the
+ * book "Error Control Coding: Fundamentals and Applications", by Lin and
+ * Costello, Prentice Hall, 1983.
+ *
+ * Thanks to Patrick Boyle (pboyle@era.com) for his observation that 'bch2.c'
+ * did not work for lengths other than 2**m-1 which led to this new version.
+ * Portions of this program are from 'rs.c', a Reed-Solomon encoder/decoder
+ * in C, written by Simon Rockliff (simon@augean.ua.oz.au) on 21/9/89. The
+ * previous version of the BCH encoder/decoder in C, 'bch2.c', was written by
+ * Robert Morelos-Zaragoza (robert@spectra.eng.hawaii.edu) on 5/19/92.
+ *
+ * NOTE:    
+ *          The author is not responsible for any malfunctioning of
+ *          this program, nor for any damage caused by it. Please include the
+ *          original program along with these comments in any redistribution.
+ *
+ *  For more information, suggestions, or other ideas on implementing error
+ *  correcting codes, please contact me at:
+ *
+ *                           Robert Morelos-Zaragoza
+ *                           5120 Woodway, Suite 7036
+ *                           Houston, Texas 77056
+ *
+ *                    email: r.morelos-zaragoza@ieee.org
+ *
+ * COPYRIGHT NOTICE: This computer program is free for non-commercial purposes.
+ * You may implement this program for any non-commercial application. You may 
+ * also implement this program for commercial purposes, provided that you
+ * obtain my written permission. Any modification of this program is covered
+ * by this copyright.
+ *
+ * == Copyright (c) 1994-7,  Robert Morelos-Zaragoza. All rights reserved.  ==
+ *
+ * m = order of the Galois field GF(2**m) 
+ * n = 2**m - 1 = size of the multiplicative group of GF(2**m)
+ * length = length of the BCH code
+ * t = error correcting capability (max. no. of errors the code corrects)
+ * d = 2*t + 1 = designed min. distance = no. of consecutive roots of g(x) + 1
+ * k = n - deg(g(x)) = dimension (no. of information bits/codeword) of the code
+ * p[] = coefficients of a primitive polynomial used to generate GF(2**m)
+ * g[] = coefficients of the generator polynomial, g(x)
+ * alpha_to [] = log table of GF(2**m) 
+ * index_of[] = antilog table of GF(2**m)
+ * data[] = information bits = coefficients of data polynomial, i(x)
+ * bb[] = coefficients of redundancy polynomial x^(length-k) i(x) modulo g(x)
+ * numerr = number of errors 
+ * errpos[] = error positions 
+ * recd[] = coefficients of the received polynomial 
+ * decerror = number of decoding errors (in _message_ positions) 
+ *
+ */
 
 #include <math.h>
 #include <stdio.h>
@@ -44,35 +90,38 @@ read_p()
 {
 	int			i, ninf;
 
-	printf("\nEnter a value of m such that the code length is\n");
+	printf("bch3: An encoder/decoder for binary BCH codes\n");
+	printf("Copyright (c) 1994-7. Robert Morelos-Zaragoza.\n");
+	printf("This program is free, please read first the copyright notice.\n");
+	printf("\nFirst, enter a value of m such that the code length is\n");
 	printf("2**(m-1) - 1 < length <= 2**m - 1\n\n");
     do {
-	   printf("m=6): ");
-	   m=6;
+	   printf("Enter m (between 2 and 20): ");
+	   scanf("%d", &m);
     } while ( !(m>1) || !(m<21) );
-	// for (i=1; i<m; i++)
-	// 	p[i] = 0;
-	// p[0] = p[m] = 1;
-	// if (m == 2)			p[1] = 1;
-	// else if (m == 3)	p[1] = 1;
-	// else if (m == 4)	p[1] = 1;
-	// else if (m == 5)	p[2] = 1;
-	// else if (m == 6)	p[1] = 1;
-	// else if (m == 7)	p[1] = 1;
-	// else if (m == 8)	p[4] = p[5] = p[6] = 1;
-	// else if (m == 9)	p[4] = 1;
-	// else if (m == 10)	p[3] = 1;
-	// else if (m == 11)	p[2] = 1;
-	// else if (m == 12)	p[3] = p[4] = p[7] = 1;
-	// else if (m == 13)	p[1] = p[3] = p[4] = 1;
-	// else if (m == 14)	p[1] = p[11] = p[12] = 1;
-	// else if (m == 15)	p[1] = 1;
-	// else if (m == 16)	p[2] = p[3] = p[5] = 1;
-	// else if (m == 17)	p[3] = 1;
-	// else if (m == 18)	p[7] = 1;
-	// else if (m == 19)	p[1] = p[5] = p[6] = 1;
-	// else if (m == 20)	p[3] = 1;
-    p[0] = p[1] = p[3] = p[4] = p[6] = 1; p[2]  = p[5] =0;
+	for (i=1; i<m; i++)
+		p[i] = 0;
+	p[0] = p[m] = 1;
+	if (m == 2)			p[1] = 1;
+	else if (m == 3)	p[1] = 1;
+	else if (m == 4)	p[1] = 1;
+	else if (m == 5)	p[2] = 1;
+	else if (m == 6)	p[1] = 1;
+	else if (m == 7)	p[1] = 1;
+	else if (m == 8)	p[4] = p[5] = p[6] = 1;
+	else if (m == 9)	p[4] = 1;
+	else if (m == 10)	p[3] = 1;
+	else if (m == 11)	p[2] = 1;
+	else if (m == 12)	p[3] = p[4] = p[7] = 1;
+	else if (m == 13)	p[1] = p[3] = p[4] = 1;
+	else if (m == 14)	p[1] = p[11] = p[12] = 1;
+	else if (m == 15)	p[1] = 1;
+	else if (m == 16)	p[2] = p[3] = p[5] = 1;
+	else if (m == 17)	p[3] = 1;
+	else if (m == 18)	p[7] = 1;
+	else if (m == 19)	p[1] = p[5] = p[6] = 1;
+	else if (m == 20)	p[3] = 1;
+	p[0] = p[1] = p[3] = p[4] = p[6] = 1; p[2] =  p[5] =0;
 	printf("p(x) = ");
     n = 1;
 	for (i = 0; i <= m; i++) {
@@ -83,8 +132,8 @@ read_p()
 	n = n / 2 - 1;
 	ninf = (n + 1) / 2 - 1;
 	do  {
-		printf("code length = 63: ", ninf, n);
-		length=63;
+		printf("Enter code length (%d < length <= %d): ", ninf, n);
+		scanf("%d", &length);
 	} while ( !((length <= n)&&(length>ninf)) );
 }
 
@@ -276,7 +325,9 @@ void
 decode_bch()
 /*
  * Simon Rockliff's implementation of Berlekamp's algorithm.
+ *
  * Assume we have received bits in recd[i], i=0..(n-1).
+ *
  * Compute the 2*t syndromes by substituting alpha^i into rec(X) and
  * evaluating, storing the syndromes in s[i], i=1..2t (leave s[0] zero) .
  * Then we use the Berlekamp algorithm to find the error location polynomial
@@ -415,9 +466,9 @@ decode_bch()
 		u++;
 		if (l[u] <= t) {/* Can correct errors */
 			/* put elp into index form */
-			for (i = 0; i <= l[u]; i++)
+			for (i = 0; i <= l[u]; i++) {
 				elp[u][i] = index_of[elp[u][i]];
-
+			}
 			printf("sigma(x) = ");
 			for (i = 0; i <= l[u]; i++)
 				printf("%3d ", elp[u][i]);

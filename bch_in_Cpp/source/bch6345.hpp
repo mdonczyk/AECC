@@ -11,14 +11,14 @@
 using namespace std;
 
 #define GF 63 // Galois Field --> 2**m - 1 = 2**6 - 1
-#define k 51
 #define n 63
-#define t 2
+#define t 3
+#define k 45
 typedef unsigned long long ULL;
 
-class BCH_code {
+class BCH_code_long_t3 {
 	public:
-        BCH_code(){
+        BCH_code_long_t3(){
             auto start = chrono::high_resolution_clock::now();
             read_p();		// read primitive polynomial p(x) 
             generate_gf();	// generate the Galois Field GF(2**m) (GF(64))
@@ -27,21 +27,21 @@ class BCH_code {
             auto duration = chrono::duration_cast<chrono::microseconds>(stop - start);
             cout <<"Count: "<< duration.count() << " microseconds" << endl;
         }
-        bitset <GF> generate_data();
-        bitset <GF> encode_bch(const bitset <GF> &Data);
-        void print_codeword_and_received_codeword(const bitset <GF> &Codeword, const bitset <GF> &Received_Codeword);
-        void print_message_and_decoded_message(const bitset <GF> &Data, const bitset <GF> &Decoded_Data);
-        string print_wihtout_zeros(const bitset <GF> &Polynomial, const uint &Not_Zeros);
-        bitset <GF> decode_bch(const bitset <GF> &Received_Codeword);
-        bitset <GF> user_input(const bitset <GF> &Codeword);
+        bitset <n> generate_data();
+        bitset <n> encode_bch(const bitset <n> &Data);
+        void print_codeword_and_received_codeword(const bitset <n> &Codeword, const bitset <n> &Received_Codeword);
+        void print_message_and_decoded_message(const bitset <n> &Data, const bitset <n> &Decoded_Data);
+        string print_wihtout_zeros(const bitset <n> &Polynomial, const uint &Not_Zeros);
+        bitset <n> decode_bch(const bitset <n> &Received_Codeword);
+        bitset <n> user_input(const bitset <n> &Codeword);
         void cin_clean();
 
     private:
         //variables:
         int primitive_polynomial = 0;
         int alpha_to[GF] = {0}, index_of[GF] = {0};
-        bitset <GF> p;
-        bitset <GF> generator_polynomial_bitset;
+        bitset <n> p;
+        bitset <n> generator_polynomial_bitset;
 		vector <int> zeros, g, errpos;
 		vector <vector <int>> zeros_deluxe;
         //functions:
@@ -50,13 +50,13 @@ class BCH_code {
         void gen_poly();
         template <size_t N>
         int MSB(const bitset <N> &polynomial);
-        vector <int> calculate_syndromes(const bitset <GF> &Received_Codeword, bool &syn_error);
-        void verbose_polynomial(const bitset <GF> &polynomial);
+        vector <int> calculate_syndromes(const bitset <n> &Received_Codeword, bool &syn_error);
+        void verbose_polynomial(const bitset <n> &polynomial);
         template <size_t N>
         void reverse_bitset(bitset <N> &polynomial, int shift);
         uint multiply_uint_polynomials(uint mulitplicand, uint multiplicator);
-        bitset <GF> multiply_bitset_polynomials(const bitset <GF> &mulitplicand, const bitset <GF> &multiplicator);
-        pair<bitset <GF>, bitset <GF>> divide_bitset_polynomials(const bitset <GF> &dividend, const bitset <GF> &divisor);
+        bitset <n> multiply_bitset_polynomials(const bitset <n> &mulitplicand, const bitset <n> &multiplicator);
+        pair<bitset <n>, bitset <n>> divide_bitset_polynomials(const bitset <n> &dividend, const bitset <n> &divisor);
 };
 		/*
 		block n n = 63 --> 64-1  Gf(2**6)
