@@ -94,7 +94,6 @@ int main() {
     file1.seekg(0, ios::beg);
     // allocate enough memory
     char *buffer = new char[fileSize];
-    char *newbuffer = new char[fileSize];
     // read the bytes to buffer:
     file1.read(buffer, fileSize);
     // write all header bytes to new file without modification:
@@ -115,14 +114,12 @@ int main() {
     vector <char> charstream = bits_to_bytes(recovered_bits, fileSize);
 
     // put the rest of modified bytes to new file:
-
     for (auto temp_char : charstream) {
         file2 << temp_char;
     }
 
     // delete allocated memory:
     delete[] buffer;
-    delete[] newbuffer;
     // close opened files:
     file1.close();
     file2.close();

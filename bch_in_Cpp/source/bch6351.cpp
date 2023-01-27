@@ -123,7 +123,7 @@ bitset <n> BCH_code_long_t2::encode_bch(const bitset <n> &Data) {
 	// to calculate redundant bits, get the remainder of Data shifted by n-k bits divided by generator polynomial
 	auto Shifted_Data = Data<<(n-k);
 	auto rb = divide_bitset_polynomials(Shifted_Data, generator_polynomial_bitset).first;
-	cout << "DATA       " << Data << endl << "SHFTD DATA " << Shifted_Data << endl << "GEN POL    " << generator_polynomial_bitset << endl << "RED BITS   " << rb << endl;
+	// cout << "DATA       " << Data << endl << "SHFTD DATA " << Shifted_Data << endl << "GEN POL    " << generator_polynomial_bitset << endl << "RED BITS   " << rb << endl;
 	// systematic encoding: The message as a suffix, first n-k bits are redundancy, last k bits are message
 	bitset <n> Codeword = Shifted_Data ^ rb;
 	//check if the generated rb are valid
@@ -131,7 +131,7 @@ bitset <n> BCH_code_long_t2::encode_bch(const bitset <n> &Data) {
 	if (check != 0) {
 		cout<<"redundant bits are not correct: "<<check<<endl;
 	}
-	cout << "CODEWORD   " << Codeword << endl;
+	// cout << "CODEWORD   " << Codeword << endl;
 	cout << endl;
 	return Codeword;
 }
@@ -159,7 +159,7 @@ vector <int> BCH_code_long_t2::calculate_syndromes(const bitset <n> &Received_Co
 	return syndromes;
 }
 
-bitset <n> BCH_code_long_t2::decode_bch(const bitset <n> &Received_Codeword) {
+pair<bitset <k>, bool> BCH_code_long_t2::decode_bch(const bitset <n> &Received_Codeword) {
 	/*
 	* Simon Rockliff's implementation of Berlekamp's algorithm.
 	* Assume we have received bits in recd[i], i=0..(n-1).
@@ -185,12 +185,12 @@ bitset <n> BCH_code_long_t2::decode_bch(const bitset <n> &Received_Codeword) {
 	bool syn_error;
 	// first form the syndromes
 	auto s = calculate_syndromes(Received_Codeword, syn_error);
-	bitset <n> Decoded_Message = Received_Codeword;
+	bitset <n> Decoded_Codeword = Received_Codeword;
 	
 	if (syn_error) {
 		if (s[3] == (s[1] * 3) % GF) {
 			cout << "One error at " << s[1];
-			Decoded_Message.flip(n-1-s[1]);
+			Decoded_Codeword.flip(n-1-s[1]);
 		} else {
 			/*
 			* Compute the error location polynomial via the Berlekamp
@@ -305,24 +305,25 @@ bitset <n> BCH_code_long_t2::decode_bch(const bitset <n> &Received_Codeword) {
 					for (auto const &error_location : error_locations) {
                         if (error_location <0 || error_location>=n) {
                             cout<<endl<<"Incomplete decoding: errors detected"<<endl;
-						    return -1;
+						    return {0, false};;
                         } else {
-                            Decoded_Message.flip((n-1-error_location + n) % n);
+                            Decoded_Codeword.flip((n-1-error_location + n) % n);
                         }
 					}
 				} else {/* err_loc_pol_coeffs has degree >t hence cannot solve */
 					cout<<endl<<"Incomplete decoding: errors detected"<<endl;
-                    return -1;
+                    return {0, false};;
 				}
 			} else {
 				cout<<endl<<"Incomplete decoding: errors detected"<<endl;
-                return -1;
+                return {0, false};;
 			}
 		}
 	} else {
 		cout << "No errors found";
 	}
-	return Decoded_Message;
+	bitset<k> Decoded_Message(Decoded_Codeword.to_string().substr(0, k));
+	return {Decoded_Message, true};
 }
 
 void BCH_code_long_t2::verbose_polynomial(const bitset <n> &polynomial) { //human readable polynomial format
@@ -454,12 +455,13 @@ void BCH_code_long_t2::print_codeword_and_received_codeword(const bitset <n> &Co
 	cout << endl << "Positions of errors in the received codeword (at ^)" << endl;
 }
 
-void BCH_code_long_t2::print_message_and_decoded_message(const bitset <n> &Data, const bitset <n> &Decoded_Data) {
+void BCH_code_long_t2::print_message_and_decoded_message(const bitset <n> &Data, const bitset <k> &Decoded_Data) {
 	cout << endl << "Results: " << endl;
-	cout << "Original Data  = " << print_wihtout_zeros(Data, k) << endl;
-	cout << "Recovered Data = " << print_wihtout_zeros(Decoded_Data>>(n-k), k) << endl;
+	bitset<k> Original_Data(Data.to_string().substr(n-k, n));
+	cout << "Original Data  = " << Original_Data << endl;
+	cout << "Recovered Data = " << Decoded_Data << endl;
 	// decoding errors: we compare only the Data portion 
-	bitset <n> test = Data ^ (Decoded_Data >> (n-k));
+	bitset <k> test = Original_Data ^ Decoded_Data;
 	cout<<"                 "<<(test.to_string(' ','^')).substr(n-k)<<endl;
 	if (test.count()) {
 		cout <<"Position of " << test.count() << " message decoding errors (at ^)\n";
@@ -468,38 +470,164 @@ void BCH_code_long_t2::print_message_and_decoded_message(const bitset <n> &Data,
 	}
 }
 
-string BCH_code_long_t2::print_wihtout_zeros(const bitset <n> &Polynomial, const uint &Not_Zeros) {
-	return (Polynomial.to_string().substr(n - Not_Zeros));
+template <size_t N>
+string BCH_code_long_t2::print_wihtout_zeros(const bitset <N> &Polynomial, const uint &Not_Zeros) {
+	return (Polynomial.to_string().substr(N - Not_Zeros));
 }
 
-int main() {
-	char run_program = 'y';
+bitset <n> introduceErrors(const int &probability, const  bitset <n> &polynomial) {
+    std::random_device rd;
+    std::mt19937 gen(rd());
+	bitset <n> modified_codeword = polynomial;
+    std::uniform_real_distribution<> distribution(0, probability);
+    for (int j = modified_codeword.size()-1; j >= 0; j--) {
+        int randnum = distribution(gen);
+        if (randnum < 1) {
+            modified_codeword.flip(j);
+        }
+    }
+	return modified_codeword;
+}
+
+vector <bitset <k>> BCH_code_long_t2::bits_to_bitsets (const vector <bool> &buffer_bits) {
+    // put each bit from bool vector to a bitset and then the full bitset to a vector:
+    vector <bitset <k>> vector_of_bitsets;
+    bitset <k> bits;
+    int it = 0;
+    for (int i=0; i<buffer_bits.size(); i++) {
+        bits[it] = buffer_bits[i];
+        it++;
+        if (it == k || i == buffer_bits.size()-1) {
+            vector_of_bitsets.push_back(bits);
+            it = 0;
+            bits = 0;
+        }
+    }
+    return vector_of_bitsets;
+}
+
+vector <bool> BCH_code_long_t2::bytes_to_bits (const char *buffer, const int fileSize) {
+    // put each bit of the char stream into a bool vector:
+    vector <bool> buffer_bits;
+     for (int i = HEADER_BYTES; i <fileSize; i++) {
+        int mask = 0;
+        char temp_char = 0;
+            for (int j=0; j<8; j++) {
+            bool is_set = buffer[i] & (1 << mask);
+            buffer_bits.push_back(is_set);
+            mask ++;
+        }
+    }
+    return buffer_bits;
+}
+
+vector <bool> BCH_code_long_t2::bitset_to_bits (const vector <bitset <k>> &vector_of_bitsets) {
+// put all bits from bitset into a bool vector:
+    vector <bool> recovered_bits;
+    int it = 0;
+    bool break_out = false;
+    for (auto const &bits : vector_of_bitsets) {
+        for (int j=0; j<k; j++) {
+            recovered_bits.push_back(bits[j]);
+            it ++;
+        }
+    }
+    return recovered_bits;
+}
+
+vector <char> BCH_code_long_t2::bits_to_bytes (const vector <bool> &recovered_bits, const int fileSize) {
+// put bits from buffer_bits into vector of chars:
+    int it = 0;
+    vector <char> charstream;
+    for (int i = HEADER_BYTES; i <fileSize; i++) {
+        char temp_char = 0;
+            for (int j=0; j<8; j++) {
+            temp_char ^= (recovered_bits[it] << j);
+            it ++;
+        }
+        charstream.push_back(temp_char);
+    }
+    return charstream;
+}
+
+int main(int argc, char* argv[]) {
 	BCH_code_long_t2 BCH_obj;
-	while(run_program == 'y') {
-		int seed = time(NULL);
-		cout << "Seed used: " << seed << endl;
-		srand(seed);
-		// Randomly generate message Data
-		bitset<n> Data = BCH_obj.generate_data();
+	ifstream file1(argv[1], ios::binary);
+	int ERROR_PROBABILITY = stoi(argv[2]);
+    ofstream file2, file3;
+    remove("image_with_errors.bmp");
+	remove("image_fixed.bmp");
+    file2.open ("image_with_errors.bmp", ios::out | ios::app | ios::binary);
+    file3.open ("image_fixed.bmp", ios::out | ios::app | ios::binary);
+    // find the number of bytes that are in the file:
+    file1.seekg(0, ios::end);
+    int fileSize = file1.tellg();
+    file1.seekg(0, ios::beg);
+    // allocate enough memory
+    char *buffer = new char[fileSize];
+    // read the bytes to buffer:
+    file1.read(buffer, fileSize);
+    // write all header bytes to new file without modification:
+    for (int i = 0; i < HEADER_BYTES; i++) {
+        file2 << buffer[i];
+		file3 << buffer[i];
+    }
+	// put each bit of the char stream into a bool vector:
+    vector <bool> buffer_bits = BCH_obj.bytes_to_bits(buffer, fileSize);
+
+    // put each bit from bool vector to a bitset and then the full bitset to a vector:
+    vector <bitset <k>> vector_of_bitsets = BCH_obj.bits_to_bitsets(buffer_bits);
+	vector <bitset <k>> vector_of_modified_bitsets;
+	vector <bitset <k>> vector_of_recovered_bitsets;
+
+	int success = 0;
+	int failure = 0;
+	int all_count = 0;
+	for (auto & bits : vector_of_bitsets) {
+		all_count++;
+		bitset<n> Data(bits.to_string());
 		// ecnode message into polynomial
 		bitset<n> Codeword = BCH_obj.encode_bch(Data);
-		// input errors into codeword
-		bitset<n> Received_Codeword = BCH_obj.user_input(Codeword);
+		// introduce errors into codeword
+		bitset<n> Received_Codeword = introduceErrors(ERROR_PROBABILITY, Codeword);
 		// show codeword and received codeword
 		BCH_obj.print_codeword_and_received_codeword(Codeword, Received_Codeword);
 		// decode received codeword
-		bitset<n> Decoded_Data = BCH_obj.decode_bch(Received_Codeword);
+		pair<bitset <k>, bool> Decoded_Data = BCH_obj.decode_bch(Received_Codeword);
 		// print out orignial message and decoded message
-        if (Decoded_Data != -1) {
-		    BCH_obj.print_message_and_decoded_message(Data, Decoded_Data);
-        }
-		cout << "Run program again? (y/n)" << endl;
-		cin >> run_program;
-		while(!cin || (run_program != 'y' && run_program != 'n')) {
-			cout << "Run program again? (y/n)\r" << endl;
-			BCH_obj.cin_clean();
-			cin >> run_program;
+        if (Decoded_Data.second) {
+		    BCH_obj.print_message_and_decoded_message(Data, Decoded_Data.first);
+			success++;
+        } else {
+			failure++;
 		}
+		vector_of_modified_bitsets.push_back(bitset <k>(Received_Codeword.to_string().substr(0, k)));
+		vector_of_recovered_bitsets.push_back(Decoded_Data.first);
 	}
+	// put all bits from bitset into a bool vector:
+	vector <bool> modified_bits = BCH_obj.bitset_to_bits(vector_of_modified_bitsets);
+	vector <bool> recovered_bits = BCH_obj.bitset_to_bits(vector_of_recovered_bitsets);
+
+	// put bits from buffer_bits into vector of chars:
+	vector <char> modified_charstream = BCH_obj.bits_to_bytes(modified_bits, fileSize);
+	vector <char> recovered_charstream = BCH_obj.bits_to_bytes(recovered_bits, fileSize);
+
+	for (auto temp_char : modified_charstream) {
+        file2 << temp_char;
+    }
+	for (auto temp_char : recovered_charstream) {
+        file3 << temp_char;
+    }
+	// use feh -F -Z --force-aliasing -d image.bmp image_with_errors.bmp image_fixed.bmp to view made images on linux
+	string line = "************************";
+	cout<< line << endl << " ALL_COUNT --> "<<all_count<< endl << line <<endl;
+	cout<< line << endl << " SUCCESSES --> "<<success<< endl << line <<endl;
+	cout<< line << endl << " FAILURES  --> "<<failure << endl << line <<endl;
+	// delete allocated memory:
+    delete[] buffer;
+    // close opened files:
+    file1.close();
+    file2.close();
+	file3.close();
     return 0;
 }
