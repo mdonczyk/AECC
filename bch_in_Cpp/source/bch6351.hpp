@@ -52,10 +52,10 @@ class BCH_code_long_t2 {
 		vector <vector <int>> zeros_deluxe;
         //functions:
         void read_p();
-        void generate_gf();
-        void gen_poly();
         template <size_t N>
         int MSB(const bitset <N> &polynomial);
+        void generate_gf();
+        void gen_poly();
         vector <int> calculate_syndromes(const bitset <n> &Received_Codeword, bool &syn_error);
         void verbose_polynomial(const bitset <n> &polynomial);
         template <size_t N>
