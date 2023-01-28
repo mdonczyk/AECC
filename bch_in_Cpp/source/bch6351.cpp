@@ -627,7 +627,7 @@ int main(int argc, char* argv[]) {
 	for (auto temp_char : recovered_charstream) {
         file3 << temp_char;
     }
-	// use feh -F -Z --force-aliasing -d image.bmp image_with_errors.bmp image_fixed.bmp to view made images on linux
+	// use feh -F -Z --force-aliasing -d image.bmp image_with_errors_BCH_code_long_t2.bmp image_fixed_BCH_code_long_t2.bmp to view made images on linux
 	string line = "************************";
 	cout<< line << endl << " ALL_COUNT --> "<<all_count<< endl << line <<endl;
 	cout<< line << endl << " SUCCESSES --> "<<success<< endl << line <<endl;
