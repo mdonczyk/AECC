@@ -1,6 +1,9 @@
 #include "bch6351.hpp"
 using namespace std;
 
+int uncaught_erorrs = 0;
+int big_errors = 0;
+
 bitset <n> BCH_code_long_t2::generate_data() {
 	bitset <n> Data;
 	for (int i = 0; i < k; i++) {
@@ -188,81 +191,78 @@ pair<bitset <k>, bool> BCH_code_long_t2::decode_bch(const bitset <n> &Received_C
 	bitset <n> Decoded_Codeword = Received_Codeword;
 	
 	if (syn_error) {
-		if (s[3] == (s[1] * 3) % GF) {
-			cout << "One error at " << s[1];
-			Decoded_Codeword.flip(n-1-s[1]);
-		} else {
-			/*
-			* Compute the error location polynomial via the Berlekamp
-			* iterative algorithm. Following the terminology of Lin and
-			* Costello's book :   d[u] is the 'mu'th discrepancy, where
-			* u='mu'+1 and 'mu' (the Greek letter!) is the step number
-			* ranging from -1 to 2*t (see L&C),  l[u] is the degree of
-			* the elp at that step, and u_l[u] is the difference between
-			* the step number and the degree of the elp. 
-			*
-			* params:
-			* l --> number of found errors, (the current length of the LFSR) linear feedback shift register
-			* d --> discrepancy
-			* u_lu
-			* err_loc_pol_coeffs[x][y]
-			*/
-			int err_loc_pol_coeffs[2*t+1][2*t+1] = {{0, 0}};
-			int d[2*t+1] = {0}, l[2*t+1] = {0}, u_lu[2*t+1] = {0};
-			vector <int> error_locations;
+		/*
+		* Compute the error location polynomial via the Berlekamp
+		* iterative algorithm. Following the terminology of Lin and
+		* Costello's book :   d[u] is the 'mu'th discrepancy, where
+		* u='mu'+1 and 'mu' (the Greek letter!) is the step number
+		* ranging from -1 to 2*t (see L&C),  l[u] is the degree of
+		* the elp at that step, and u_l[u] is the difference between
+		* the step number and the degree of the elp. 
+		*
+		* params:
+		* l --> number of found errors, (the current length of the LFSR) linear feedback shift register
+		* d --> discrepancy
+		* u_lu
+		* err_loc_pol_coeffs[x][y]
+		*/
+		int err_loc_pol_coeffs[3*t+1][3*t+1] = {{0, 0}};
+		int d[3*t+1] = {0}, l[3*t+1] = {0}, u_lu[3*t+1] = {0};
+		vector <int> error_locations;
 
-			d[1] = s[1];		/* index form */
-			err_loc_pol_coeffs[1][0] = 1;		/* polynomial form */
-			int u;
-			for (u = 1; l[u + 1] <= t; u++) {
-				if (d[u] == -1) {
-					l[u + 1] = l[u];
-					for (int i = 0; i <= l[u]; i++) {
-						err_loc_pol_coeffs[u + 1][i] = err_loc_pol_coeffs[u][i];
-						err_loc_pol_coeffs[u][i] = index_of[err_loc_pol_coeffs[u][i]];
-					}
-				} else {
-					/*
-					* search for words with greatest u_lu[q] for
-					* which d[q]!=0 
-					*/
-					int q = u - 1;
-					while ((d[q] == -1) && (q > 0))
-						q--;
-					/* have found first non-zero d[q]  */
-					if (q > 0) {
-						int j = q;
-						do {
-							j--;
-							if ((d[j] != -1) && (u_lu[q] < u_lu[j]))
-							q = j;
-						} while (j > 0);
-					}
-					/*
-					* have now found q such that d[u]!=0 and
-					* u_lu[q] is maximum 
-					*/
-					/* store degree of new err_loc_pol_coeffs polynomial */
-					if (l[u] > l[q] + u - q)
-						l[u + 1] = l[u];
-					else
-						l[u + 1] = l[q] + u - q;
-
-					/* form new err_loc_pol_coeffs(x) */
-					for (int i = 0; i < 2*t; i++)
-						err_loc_pol_coeffs[u + 1][i] = 0;
-					for (int i = 0; i <= l[q]; i++)
-						if (err_loc_pol_coeffs[q][i] != -1)
-							err_loc_pol_coeffs[u + 1][i + u - q] = 
-									alpha_to[(d[u] + GF - d[q] + err_loc_pol_coeffs[q][i]) % GF];
-					for (int i = 0; i <= l[u]; i++) {
-						err_loc_pol_coeffs[u + 1][i] ^= err_loc_pol_coeffs[u][i];
-						err_loc_pol_coeffs[u][i] = index_of[err_loc_pol_coeffs[u][i]];
-					}
+		d[1] = s[1];		/* index form */
+		err_loc_pol_coeffs[1][0] = 1;		/* polynomial form */
+		int u;
+		for (u = 1; (u < 2*t) && (l[u + 1] <= t); u++) {
+			if (d[u] == -1) {
+				l[u + 1] = l[u];
+				for (int i = 0; i <= l[u]; i++) {
+					err_loc_pol_coeffs[u + 1][i] = err_loc_pol_coeffs[u][i];
+					err_loc_pol_coeffs[u][i] = index_of[err_loc_pol_coeffs[u][i]];
 				}
-				u_lu[u + 1] = u - l[u + 1];
+			} else {
+				/*
+				* search for words with greatest u_lu[q] for
+				* which d[q]!=0 
+				*/
+				int q = u - 1;
+				while ((d[q] == -1) && (q > 0))
+					q--;
+				/* have found first non-zero d[q]  */
+				if (q > 0) {
+					int j = q;
+					do {
+						j--;
+						if ((d[j] != -1) && (u_lu[q] < u_lu[j]))
+						q = j;
+					} while (j > 0);
+				}
+				/*
+				* have now found q such that d[u]!=0 and
+				* u_lu[q] is maximum 
+				*/
+				/* store degree of new err_loc_pol_coeffs polynomial */
+				if (l[u] > l[q] + u - q)
+					l[u + 1] = l[u];
+				else
+					l[u + 1] = l[q] + u - q;
 
-				/* form (u+1)th discrepancy */
+				/* form new err_loc_pol_coeffs(x) */
+				for (int i = 0; i < 2*t; i++)
+					err_loc_pol_coeffs[u + 1][i] = 0;
+				for (int i = 0; i <= l[q]; i++)
+					if (err_loc_pol_coeffs[q][i] != -1)
+						err_loc_pol_coeffs[u + 1][i + u - q] = 
+								alpha_to[(d[u] + GF - d[q] + err_loc_pol_coeffs[q][i]) % GF];
+				for (int i = 0; i <= l[u]; i++) {
+					err_loc_pol_coeffs[u + 1][i] ^= err_loc_pol_coeffs[u][i];
+					err_loc_pol_coeffs[u][i] = index_of[err_loc_pol_coeffs[u][i]];
+				}
+			}
+			u_lu[u + 1] = u - l[u + 1];
+
+			/* form (u+1)th discrepancy */
+			if (u < 2*t) {
 				/* no discrepancy computed on last iteration */
 				if (s[u + 1] != -1) {
 					d[u + 1] = alpha_to[s[u + 1]];
@@ -275,49 +275,50 @@ pair<bitset <k>, bool> BCH_code_long_t2::decode_bch(const bitset <n> &Received_C
 					}
 				}
 				/* put d[u+1] into index form */
-				d[u + 1] = index_of[d[u + 1]];	
+				d[u + 1] = index_of[d[u + 1]];
 			}
-			
-			if (l[u] <= t) {/* Can correct errors */
-				/* put err_loc_pol_coeffs into index form */
-				cout << "Sigma(x) = ";
-				for (int i = 0; i <= l[u]; i++) {
-					err_loc_pol_coeffs[u][i] = index_of[err_loc_pol_coeffs[u][i]];
-					cout << err_loc_pol_coeffs[u][i] << " ";
+		}
+		
+		if (l[u] <= t) {/* Can correct errors */
+			/* put err_loc_pol_coeffs into index form */
+			cout << "Sigma(x) = ";
+			for (int i = 0; i <= l[u]; i++) {
+				err_loc_pol_coeffs[u][i] = index_of[err_loc_pol_coeffs[u][i]];
+				cout << err_loc_pol_coeffs[u][i] << " ";
+			}
+			// Find roots of the error location polynomial:
+			// Chien search
+			cout << endl << "Roots: ";
+			for (int i = 1; i <= GF; i++) {
+				int q = 1;
+				for (int j = 1; j <= l[u]; j++) {
+					err_loc_pol_coeffs[u][j] = (err_loc_pol_coeffs[u][j] + j) % GF;
+					q ^= alpha_to[err_loc_pol_coeffs[u][j]];
 				}
-				// Find roots of the error location polynomial:
-				// Chien search
-				cout << endl << "Roots: ";
-				for (int i = 1; i <= GF; i++) {
-					int q = 1;
-					for (int j = 1; j <= l[u]; j++) {
-						err_loc_pol_coeffs[u][j] = (err_loc_pol_coeffs[u][j] + j) % GF;
-						q ^= alpha_to[err_loc_pol_coeffs[u][j]];
-					}
-					// Store error location number indices
-					if (!q) {
-						error_locations.push_back(GF - i);
-						cout << error_locations.back() << " ";
+				// Store error location number indices
+				if (!q) {
+					error_locations.push_back(GF - i);
+					cout << error_locations.back() << " ";
+				}
+			}
+			if (error_locations.size() == (unsigned)l[u]) {
+			/* no. roots = degree of err_loc_pol_coeffs hence <= t errors */
+				for (auto const &error_location : error_locations) {
+					auto err_loc = (n-1-error_location + n) % n;
+					if (err_loc < 0 || err_loc >= n) {
+						cout<<endl<<"Incomplete decoding: errors detected"<<endl;
+						return {0, false};
+					} else {
+						Decoded_Codeword.flip(err_loc);
 					}
 				}
-				if (error_locations.size() == (unsigned)l[u]) {
-				/* no. roots = degree of err_loc_pol_coeffs hence <= t errors */
-					for (auto const &error_location : error_locations) {
-                        if (error_location <0 || error_location>=n) {
-                            cout<<endl<<"Incomplete decoding: errors detected"<<endl;
-						    return {0, false};;
-                        } else {
-                            Decoded_Codeword.flip((n-1-error_location + n) % n);
-                        }
-					}
-				} else {/* err_loc_pol_coeffs has degree >t hence cannot solve */
-					cout<<endl<<"Incomplete decoding: errors detected"<<endl;
-                    return {0, false};;
-				}
-			} else {
+			} else {/* err_loc_pol_coeffs has degree >t hence cannot solve */
 				cout<<endl<<"Incomplete decoding: errors detected"<<endl;
-                return {0, false};;
+				return {0, false};
 			}
+		} else {
+			cout<<endl<<"Incomplete decoding: errors detected"<<endl;
+			return {0, false};
 		}
 	} else {
 		cout << "No errors found";
@@ -444,15 +445,19 @@ void BCH_code_long_t2::cin_clean() {
 void BCH_code_long_t2::print_codeword_and_received_codeword(const bitset <n> &Codeword, const bitset <n> &Received_Codeword) {
 	cout << "c(x) = "<< Codeword << endl;
 	cout << "r(x) = "<< Received_Codeword << endl;
-	cout <<"       ";
-	for (int i=n-1; i >=0; i--) {
-		if (Codeword[i] != Received_Codeword[i]) {
-			cout << '^';
-		} else {
-			cout << ' ';
-		}
+	bitset <n> test = Codeword ^ Received_Codeword;
+	if (test.count() >= 3) {
+		big_errors++;
 	}
-	cout << endl << "Positions of errors in the received codeword (at ^)" << endl;
+	cout<<"        "<<(test.to_string(' ','^'))<<endl;
+	// for (int i=n-1; i >=0; i--) {
+	// 	if (Codeword[i] != Received_Codeword[i]) {
+	// 		cout << '^';
+	// 	} else {
+	// 		cout << ' ';
+	// 	}
+	// }
+	cout << endl << "Positions of " << test.count() << " errors in the received codeword (at ^)" << endl;
 }
 
 void BCH_code_long_t2::print_message_and_decoded_message(const bitset <n> &Data, const bitset <k> &Decoded_Data) {
@@ -464,6 +469,7 @@ void BCH_code_long_t2::print_message_and_decoded_message(const bitset <n> &Data,
 	bitset <k> test = Original_Data ^ Decoded_Data;
 	cout<<"                 "<<(test.to_string(' ','^')).substr(n-k)<<endl;
 	if (test.count()) {
+		uncaught_erorrs++;
 		cout <<"Position of " << test.count() << " message decoding errors (at ^)\n";
 	} else {
 		cout <<"Succesful decoding\n";
@@ -552,13 +558,15 @@ vector <char> BCH_code_long_t2::bits_to_bytes (const vector <bool> &recovered_bi
 
 int main(int argc, char* argv[]) {
 	BCH_code_long_t2 BCH_obj;
+	// start the clock:
+	auto start = chrono::high_resolution_clock::now();
 	ifstream file1(argv[1], ios::binary);
 	int ERROR_PROBABILITY = stoi(argv[2]);
     ofstream file2, file3;
-    remove("image_with_errors.bmp");
-	remove("image_fixed.bmp");
-    file2.open ("image_with_errors.bmp", ios::out | ios::app | ios::binary);
-    file3.open ("image_fixed.bmp", ios::out | ios::app | ios::binary);
+    remove("image_with_errors_BCH_code_long_t2.bmp");
+	remove("image_fixed_BCH_code_long_t2.bmp");
+    file2.open ("image_with_errors_BCH_code_long_t2.bmp", ios::out | ios::app | ios::binary);
+    file3.open ("image_fixed_BCH_code_long_t2.bmp", ios::out | ios::app | ios::binary);
     // find the number of bytes that are in the file:
     file1.seekg(0, ios::end);
     int fileSize = file1.tellg();
@@ -583,6 +591,7 @@ int main(int argc, char* argv[]) {
 	int success = 0;
 	int failure = 0;
 	int all_count = 0;
+	
 	for (auto & bits : vector_of_bitsets) {
 		all_count++;
 		bitset<n> Data(bits.to_string());
@@ -623,6 +632,15 @@ int main(int argc, char* argv[]) {
 	cout<< line << endl << " ALL_COUNT --> "<<all_count<< endl << line <<endl;
 	cout<< line << endl << " SUCCESSES --> "<<success<< endl << line <<endl;
 	cout<< line << endl << " FAILURES  --> "<<failure << endl << line <<endl;
+	cout<< line << endl << " UNCAUGHT  --> "<<uncaught_erorrs << endl << line <<endl;
+	cout<< line << endl << " BIG_ERRS  --> "<<big_errors << endl << line <<endl;
+
+	// end time clock and show the time:
+	auto stop = chrono::high_resolution_clock::now();
+	auto dur = stop - start;
+	auto duration = std::chrono::duration_cast<std::chrono::duration<float>>(dur);
+	cout <<"Count: "<< fixed << setprecision(3) << duration.count() << " seconds" << endl;
+
 	// delete allocated memory:
     delete[] buffer;
     // close opened files:

@@ -461,9 +461,15 @@ decode_bch()
 			  /* put d[u+1] into index form */
 			  d[u + 1] = index_of[d[u + 1]];	
 			}
-		} while ((u < t2) && (l[u + 1] <= t));
+		} while (u<10);
  
 		u++;
+		for (int it = 0; it<20; it++) {
+			printf("\n%ls:  ", elp[it]);
+			for (int iter = 0; iter<10; iter++) {
+				printf("%d ", elp[it][iter]);
+			}
+		}
 		if (l[u] <= t) {/* Can correct errors */
 			/* put elp into index form */
 			for (i = 0; i <= l[u]; i++) {

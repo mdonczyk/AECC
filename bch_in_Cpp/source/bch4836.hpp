@@ -1,12 +1,16 @@
-#include <iostream>
 #include <algorithm>
-#include <vector>
-#include <bitset>
-#include <time.h>
-#include <cmath>
-#include <chrono>
 #include <bit>
+#include <bitset>
+#include <chrono>
+#include <cmath>
+#include <iomanip>
+#include <iostream>
+#include <fstream>
+#include <memory>
+#include <random>
 #include <set>
+#include <time.h>
+#include <vector>
 
 using namespace std;
 
@@ -14,25 +18,27 @@ using namespace std;
 #define n 48
 #define t 2
 #define k 36
+#define HEADER_BYTES 30
 typedef unsigned long long ULL;
 
 class BCH_code_short_t2 {
 	public:
         BCH_code_short_t2(){
-            auto start = chrono::high_resolution_clock::now();
             read_p();		// read primitive polynomial p(x) 
             generate_gf();	// generate the Galois Field GF(2**m) (GF(64))
             gen_poly();		// Compute the generator polynomial g(x) of BCH code
-            auto stop = chrono::high_resolution_clock::now();
-            auto duration = chrono::duration_cast<chrono::microseconds>(stop - start);
-            cout <<"Count: "<< duration.count() << " microseconds" << endl;
         }
+        vector <bitset <k>> bits_to_bitsets (const vector <bool> &buffer_bits);
+        vector <bool> bytes_to_bits (const char *buffer, const int fileSize);
+        vector <bool> bitset_to_bits (const vector <bitset <k>> &vector_of_bits);
+        vector <char> bits_to_bytes (const vector <bool> &recovered_bits, const int fileSize);
         bitset <n> generate_data();
         bitset <n> encode_bch(const bitset <n> &Data);
         void print_codeword_and_received_codeword(const bitset <n> &Codeword, const bitset <n> &Received_Codeword);
-        void print_message_and_decoded_message(const bitset <n> &Data, const bitset <n> &Decoded_Data);
-        string print_wihtout_zeros(const bitset <n> &Polynomial, const uint &Not_Zeros);
-        bitset <n> decode_bch(const bitset <n> &Received_Codeword);
+        void print_message_and_decoded_message(const bitset <n> &Data, const bitset <k> &Decoded_Data);
+        template <size_t N>
+        string print_wihtout_zeros(const bitset <N> &Polynomial, const uint &Not_Zeros);
+        pair<bitset <k>, bool> decode_bch(const bitset <n> &Received_Codeword);
         bitset <n> user_input(const bitset <n> &Codeword);
         void cin_clean();
 

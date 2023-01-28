@@ -1,15 +1,16 @@
-#include <iostream>
 #include <algorithm>
-#include <vector>
-#include <bitset>
-#include <time.h>
-#include <cmath>
-#include <chrono>
 #include <bit>
-#include <set>
-#include <random>
+#include <bitset>
+#include <chrono>
+#include <cmath>
+#include <iomanip>
+#include <iostream>
 #include <fstream>
 #include <memory>
+#include <random>
+#include <set>
+#include <time.h>
+#include <vector>
 
 using namespace std;
 
@@ -23,13 +24,9 @@ typedef unsigned long long ULL;
 class BCH_code_long_t2 {
 	public:
         BCH_code_long_t2(){
-            auto start = chrono::high_resolution_clock::now();
             read_p();		// read primitive polynomial p(x) 
             generate_gf();	// generate the Galois Field GF(2**m) (GF(64))
             gen_poly();		// Compute the generator polynomial g(x) of BCH code
-            auto stop = chrono::high_resolution_clock::now();
-            auto duration = chrono::duration_cast<chrono::microseconds>(stop - start);
-            cout <<"Count: "<< duration.count() << " microseconds" << endl;
         }
         vector <bitset <k>> bits_to_bitsets (const vector <bool> &buffer_bits);
         vector <bool> bytes_to_bits (const char *buffer, const int fileSize);
