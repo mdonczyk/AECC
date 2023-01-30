@@ -29,7 +29,7 @@ class BCH_code_long_t3 {
             gen_poly();		// Compute the generator polynomial g(x) of BCH code
         }
         vector <bitset <k>> bits_to_bitsets (const vector <bool> &buffer_bits);
-        vector <bool> bytes_to_bits (const char *buffer, const int fileSize);
+        vector <bool> bytes_to_bits (const vector <unsigned char> &buffer, const int fileSize);
         vector <bool> bitset_to_bits (const vector <bitset <k>> &vector_of_bits);
         vector <char> bits_to_bytes (const vector <bool> &recovered_bits, const int fileSize);
         bitset <n> generate_data();

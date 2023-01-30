@@ -4,6 +4,8 @@ using namespace std;
 int uncaught_erorrs = 0;
 int big_errors = 0;
 string line(n/2, '*');
+string dash_line(n/2, '-');
+string small_line(23, '*');
 
 bitset <n> BCH_code_long_t2::generate_data() {
 	bitset <n> Data;
@@ -461,7 +463,7 @@ void BCH_code_long_t2::print_codeword_and_received_codeword(const bitset <n> &Co
 }
 
 void BCH_code_long_t2::print_message_and_decoded_message(const bitset <n> &Data, const bitset <k> &Decoded_Data) {
-	cout << endl << line << "Results" << line << endl;
+	cout << endl << dash_line << "Results" << dash_line << endl;
 	bitset<k> Original_Data(Data.to_string().substr(n-k, n));
 	cout << "Original Data  = " << Original_Data << endl;
 	cout << "Recovered Data = " << Decoded_Data << endl;
@@ -591,7 +593,7 @@ int main(int argc, char* argv[]) {
 	int failure = 0;
 	int all_count = 0;
 	
-	for (auto & bits : vector_of_bitsets) {
+	for (auto const& bits : vector_of_bitsets) {
 		cout << line << " START " << line;
 		all_count++;
 		bitset<n> Data(bits.to_string());
@@ -628,13 +630,12 @@ int main(int argc, char* argv[]) {
 	for (auto temp_char : recovered_charstream) {
         file3 << temp_char;
     }
-	// use feh -F -Z --force-aliasing -d image.bmp image_with_errors_BCH_code_long_t2.bmp image_fixed_BCH_code_long_t2.bmp to view made images on linux
-	string small_line = "***********************";
-	cout<< small_line << endl << " ALL_COUNT --> "<<all_count<< endl << small_line <<endl;
-	cout<< small_line << endl << " SUCCESSES --> "<<success<< endl << small_line <<endl;
-	cout<< small_line << endl << " FAILURES  --> "<<failure << endl << small_line <<endl;
-	cout<< small_line << endl << " UNCAUGHT  --> "<<uncaught_erorrs << endl << small_line <<endl;
-	cout<< small_line << endl << " BIG_ERRS  --> "<<big_errors << endl << small_line <<endl;
+	cout << small_line << endl << " ALL_COUNT --> "<< all_count << endl << small_line <<endl;
+	cout << small_line << endl << " SUCCESSES --> "<< success << endl << small_line <<endl;
+	cout << small_line << endl << " FAILURES  --> "<< failure << endl << small_line <<endl;
+	cout << small_line << endl << " UNCAUGHT  --> "<< uncaught_erorrs << endl << small_line <<endl;
+	cout << small_line << endl << " BIG_ERRS  --> "<< big_errors << endl << small_line <<endl;
+	cout << "Use \"feh -F -Z --force-aliasing -d " <<  argv[1] << " image_with_errors_BCH_code_long_t2.bmp image_fixed_BCH_code_long_t2.bmp\" to view made images on linux" << endl;
 
 	// end time clock and show the time:
 	auto stop = chrono::high_resolution_clock::now();

@@ -1,6 +1,12 @@
 #include "bch4836.hpp"
 using namespace std;
 
+int uncaught_erorrs = 0;
+int big_errors = 0;
+string line(n/2, '*');
+string dash_line(n/2, '-');
+string small_line(23, '*');
+
 bitset <n> BCH_code_short_t2::generate_data() {
 	bitset <n> Data;
 	for (int i = 0; i < k; i++) {
@@ -15,6 +21,11 @@ void BCH_code_short_t2::read_p() {
 	primitive_polynomial = p.to_ulong();
 	cout << "Primitive polynomial:" << endl << "p(x) = ";
 	verbose_polynomial(p);
+}
+
+template <size_t N>
+int BCH_code_short_t2::MSB(const bitset <N> &polynomial) { // Most Significant Bit
+	return (N + (GF-N) - countl_zero(polynomial.to_ullong()));
 }
 
 void BCH_code_short_t2::generate_gf() {
@@ -203,14 +214,15 @@ pair<bitset <k>, bool> BCH_code_short_t2::decode_bch(const bitset <n> &Received_
 		* u_lu
 		* err_loc_pol_coeffs[x][y]
 		*/
-		int err_loc_pol_coeffs[2*t+1][2*t+1] = {{0, 0}};
-		int d[2*t+1] = {0}, l[2*t+1] = {0}, u_lu[2*t+1] = {0};
+		int err_loc_pol_coeffs[3*t+1][3*t+1] = {{0, 0}};
+		int d[3*t+1] = {0}, l[3*t+1] = {0}, u_lu[3*t+1] = {0};
 		vector <int> error_locations;
 
 		d[1] = s[1];		/* index form */
 		err_loc_pol_coeffs[1][0] = 1;		/* polynomial form */
-		int u;
-		for (u = 1; l[u + 1] <= t; u++) {
+		int u=0;
+		do {
+			u++;
 			if (d[u] == -1) {
 				l[u + 1] = l[u];
 				for (int i = 0; i <= l[u]; i++) {
@@ -257,22 +269,25 @@ pair<bitset <k>, bool> BCH_code_short_t2::decode_bch(const bitset <n> &Received_
 				}
 			}
 			u_lu[u + 1] = u - l[u + 1];
-
+			
 			/* form (u+1)th discrepancy */
-			/* no discrepancy computed on last iteration */
-			if (s[u + 1] != -1) {
-				d[u + 1] = alpha_to[s[u + 1]];
-			} else {
-				d[u + 1] = 0;
-			}
-			for (int i = 1; i <= l[u + 1]; i++) {
-				if ((s[u + 1 - i] != -1) && (err_loc_pol_coeffs[u + 1][i] != 0)) {
-					d[u + 1] ^= alpha_to[(s[u + 1 - i] + index_of[err_loc_pol_coeffs[u + 1][i]]) % GF];
+			if (u < 2*t) {
+				/* no discrepancy computed on last iteration */
+				if (s[u + 1] != -1) {
+					d[u + 1] = alpha_to[s[u + 1]];
+				} else {
+					d[u + 1] = 0;
 				}
+				for (int i = 1; i <= l[u + 1]; i++) {
+					if ((s[u + 1 - i] != -1) && (err_loc_pol_coeffs[u + 1][i] != 0)) {
+						d[u + 1] ^= alpha_to[(s[u + 1 - i] + index_of[err_loc_pol_coeffs[u + 1][i]]) % GF];
+					}
+				}
+				/* put d[u+1] into index form */
+				d[u + 1] = index_of[d[u + 1]];
 			}
-			/* put d[u+1] into index form */
-			d[u + 1] = index_of[d[u + 1]];	
-		}
+		} while ((u < 2*t) && (l[u + 1] <= t));
+		u++;
 		
 		if (l[u] <= t) {/* Can correct errors */
 			/* put err_loc_pol_coeffs into index form */
@@ -347,11 +362,6 @@ void BCH_code_short_t2::reverse_bitset(bitset <N> &polynomial, int shift) {
     	polynomial[N-i-1] = temp_bit;
     }
 	polynomial >>= shift;
-}
-
-template <size_t N>
-int BCH_code_short_t2::MSB(const bitset <N> &polynomial) { // Most Significant Bit
-	return (N + (GF-N) - countl_zero(polynomial.to_ullong()));
 }
 
 pair<bitset <n>, bitset <n>> BCH_code_short_t2::divide_bitset_polynomials(const bitset <n> &dividend, const bitset <n> &divisor) {
@@ -440,29 +450,31 @@ void BCH_code_short_t2::cin_clean() {
 void BCH_code_short_t2::print_codeword_and_received_codeword(const bitset <n> &Codeword, const bitset <n> &Received_Codeword) {
 	cout << "c(x) = "<< Codeword << endl;
 	cout << "r(x) = "<< Received_Codeword << endl;
-	cout <<"       ";
-	for (int i=n-1; i >=0; i--) {
-		if (Codeword[i] != Received_Codeword[i]) {
-			cout << '^';
-		} else {
-			cout << ' ';
+	bitset <n> test = Codeword ^ Received_Codeword;
+	if (test.count()) {
+		cout<<"       "<<(test.to_string(' ','^'))<<endl;
+		cout << "Positions of " << test.count() << " errors in the received codeword at ^.";
+		if (test.count() >= 3) {
+			big_errors++;
 		}
+	} else {
+		cout << "No errors in the received codeword.";
 	}
-	cout << endl << "Positions of errors in the received codeword (at ^)" << endl;
 }
 
 void BCH_code_short_t2::print_message_and_decoded_message(const bitset <n> &Data, const bitset <k> &Decoded_Data) {
-	cout << endl << "Results: " << endl;
+	cout << endl << dash_line << "Results" << dash_line << endl;
 	bitset<k> Original_Data(Data.to_string().substr(n-k, n));
 	cout << "Original Data  = " << Original_Data << endl;
 	cout << "Recovered Data = " << Decoded_Data << endl;
 	// decoding errors: we compare only the Data portion 
 	bitset <k> test = Original_Data ^ Decoded_Data;
-	cout<<"                 "<<(test.to_string(' ','^')).substr(n-k)<<endl;
 	if (test.count()) {
-		cout <<"Position of " << test.count() << " message decoding errors (at ^)\n";
+		cout << "                 " << (test.to_string(' ','^')) << endl;
+		cout << "Position of " << test.count() << " message decoding errors at ^." << endl;
+		uncaught_erorrs++;
 	} else {
-		cout <<"Succesful decoding\n";
+		cout <<"Succesful decoding." << endl;;
 	}
 }
 
@@ -490,7 +502,7 @@ vector <bitset <k>> BCH_code_short_t2::bits_to_bitsets (const vector <bool> &buf
     vector <bitset <k>> vector_of_bitsets;
     bitset <k> bits;
     int it = 0;
-    for (int i=0; i<buffer_bits.size(); i++) {
+    for (uint i=0; i<buffer_bits.size(); i++) {
         bits[it] = buffer_bits[i];
         it++;
         if (it == k || i == buffer_bits.size()-1) {
@@ -502,26 +514,10 @@ vector <bitset <k>> BCH_code_short_t2::bits_to_bitsets (const vector <bool> &buf
     return vector_of_bitsets;
 }
 
-vector <bool> BCH_code_short_t2::bytes_to_bits (const char *buffer, const int fileSize) {
-    // put each bit of the char stream into a bool vector:
-    vector <bool> buffer_bits;
-     for (int i = HEADER_BYTES; i <fileSize; i++) {
-        int mask = 0;
-        char temp_char = 0;
-            for (int j=0; j<8; j++) {
-            bool is_set = buffer[i] & (1 << mask);
-            buffer_bits.push_back(is_set);
-            mask ++;
-        }
-    }
-    return buffer_bits;
-}
-
 vector <bool> BCH_code_short_t2::bitset_to_bits (const vector <bitset <k>> &vector_of_bitsets) {
 // put all bits from bitset into a bool vector:
     vector <bool> recovered_bits;
     int it = 0;
-    bool break_out = false;
     for (auto const &bits : vector_of_bitsets) {
         for (int j=0; j<k; j++) {
             recovered_bits.push_back(bits[j]);
@@ -529,6 +525,21 @@ vector <bool> BCH_code_short_t2::bitset_to_bits (const vector <bitset <k>> &vect
         }
     }
     return recovered_bits;
+}
+
+
+vector <bool> BCH_code_short_t2::bytes_to_bits (const char *buffer, const int fileSize) {
+    // put each bit of the char stream into a bool vector:
+    vector <bool> buffer_bits;
+     for (int i = HEADER_BYTES; i <fileSize; i++) {
+        int mask = 0;
+            for (int j=0; j<8; j++) {
+            bool is_set = buffer[i] & (1 << mask);
+            buffer_bits.push_back(is_set);
+            mask ++;
+        }
+    }
+    return buffer_bits;
 }
 
 vector <char> BCH_code_short_t2::bits_to_bytes (const vector <bool> &recovered_bits, const int fileSize) {
@@ -575,14 +586,15 @@ int main(int argc, char* argv[]) {
 
     // put each bit from bool vector to a bitset and then the full bitset to a vector:
     vector <bitset <k>> vector_of_bitsets = BCH_obj.bits_to_bitsets(buffer_bits);
+
 	vector <bitset <k>> vector_of_modified_bitsets;
 	vector <bitset <k>> vector_of_recovered_bitsets;
-
 	int success = 0;
 	int failure = 0;
 	int all_count = 0;
 	
-	for (auto & bits : vector_of_bitsets) {
+	for (auto const& bits : vector_of_bitsets) {
+		cout << line << " START " << line;
 		all_count++;
 		bitset<n> Data(bits.to_string());
 		// ecnode message into polynomial
@@ -602,6 +614,7 @@ int main(int argc, char* argv[]) {
 		}
 		vector_of_modified_bitsets.push_back(bitset <k>(Received_Codeword.to_string().substr(0, k)));
 		vector_of_recovered_bitsets.push_back(Decoded_Data.first);
+		cout << line << " STOP *" << line << endl << endl;
 	}
 	// put all bits from bitset into a bool vector:
 	vector <bool> modified_bits = BCH_obj.bitset_to_bits(vector_of_modified_bitsets);
@@ -617,11 +630,12 @@ int main(int argc, char* argv[]) {
 	for (auto temp_char : recovered_charstream) {
         file3 << temp_char;
     }
-	// use feh -F -Z --force-aliasing -d image.bmp image_with_errors.bmp image_fixed.bmp to view made images on linux
-	string line = "************************";
-	cout<< line << endl << " ALL_COUNT --> "<<all_count<< endl << line <<endl;
-	cout<< line << endl << " SUCCESSES --> "<<success<< endl << line <<endl;
-	cout<< line << endl << " FAILURES  --> "<<failure << endl << line <<endl;
+	cout << small_line << endl << " ALL_COUNT --> "<< all_count << endl << small_line <<endl;
+	cout << small_line << endl << " SUCCESSES --> "<< success << endl << small_line <<endl;
+	cout << small_line << endl << " FAILURES  --> "<< failure << endl << small_line <<endl;
+	cout << small_line << endl << " UNCAUGHT  --> "<< uncaught_erorrs << endl << small_line <<endl;
+	cout << small_line << endl << " BIG_ERRS  --> "<< big_errors << endl << small_line <<endl;
+	cout << "Use \"feh -F -Z --force-aliasing -d " <<  argv[1] << " image_with_errors_BCH_code_short_t2.bmp image_fixed_BCH_code_short_t2.bmp\" to view made images on linux" << endl;
 
 	// end time clock and show the time:
 	auto stop = chrono::high_resolution_clock::now();
