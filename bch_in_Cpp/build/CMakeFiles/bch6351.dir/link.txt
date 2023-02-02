@@ -1,0 +1,1 @@
+/usr/bin/c++ CMakeFiles/bch6351.dir/bch6351.cpp.o -o ../bch6351 
