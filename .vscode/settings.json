@@ -88,5 +88,6 @@
         "variant": "cpp",
         "bch6351": "cpp",
         "stdio.h": "c"
-    }
+    },
+    "cmake.sourceDirectory": "${workspaceFolder}/bch_in_Cpp"
 }

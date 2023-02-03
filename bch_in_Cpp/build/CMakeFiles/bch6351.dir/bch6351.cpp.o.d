@@ -194,7 +194,8 @@ CMakeFiles/bch6351.dir/bch6351.cpp.o: \
  /usr/include/c++/11/tr1/modified_bessel_func.tcc \
  /usr/include/c++/11/tr1/poly_hermite.tcc \
  /usr/include/c++/11/tr1/poly_laguerre.tcc \
- /usr/include/c++/11/tr1/riemann_zeta.tcc /usr/include/c++/11/iomanip \
+ /usr/include/c++/11/tr1/riemann_zeta.tcc /usr/include/c++/11/cstring \
+ /usr/include/string.h /usr/include/strings.h /usr/include/c++/11/iomanip \
  /usr/include/c++/11/locale /usr/include/c++/11/bits/locale_facets.h \
  /usr/include/c++/11/cwctype /usr/include/wctype.h \
  /usr/include/x86_64-linux-gnu/bits/wctype-wchar.h \

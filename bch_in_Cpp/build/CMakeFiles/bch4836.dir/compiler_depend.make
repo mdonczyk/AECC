@@ -240,6 +240,9 @@ CMakeFiles/bch4836.dir/bch4836.cpp.o: ../bch4836.cpp \
   /usr/include/c++/11/tr1/poly_hermite.tcc \
   /usr/include/c++/11/tr1/poly_laguerre.tcc \
   /usr/include/c++/11/tr1/riemann_zeta.tcc \
+  /usr/include/c++/11/cstring \
+  /usr/include/string.h \
+  /usr/include/strings.h \
   /usr/include/c++/11/iomanip \
   /usr/include/c++/11/locale \
   /usr/include/c++/11/bits/locale_facets.h \
@@ -406,6 +409,12 @@ CMakeFiles/bch4836.dir/bch4836.cpp.o: ../bch4836.cpp \
 
 /usr/include/c++/11/bits/ostream.tcc:
 
+/usr/include/c++/11/ostream:
+
+/usr/include/c++/11/bits/unique_ptr.h:
+
+/usr/include/c++/11/bits/locale_conv.h:
+
 /usr/include/c++/11/ext/atomicity.h:
 
 /usr/include/c++/11/bits/locale_facets_nonio.tcc:
@@ -458,10 +467,6 @@ CMakeFiles/bch4836.dir/bch4836.cpp.o: ../bch4836.cpp \
 
 /usr/include/c++/11/tr1/special_function_util.h:
 
-/usr/include/c++/11/bits/unique_ptr.h:
-
-/usr/include/c++/11/ostream:
-
 /usr/include/x86_64-linux-gnu/bits/posix_opt.h:
 
 /usr/include/c++/11/bits/ranges_algobase.h:
@@ -477,6 +482,8 @@ CMakeFiles/bch4836.dir/bch4836.cpp.o: ../bch4836.cpp \
 /usr/include/alloca.h:
 
 /usr/include/x86_64-linux-gnu/bits/struct_rwlock.h:
+
+/usr/include/strings.h:
 
 /usr/include/c++/11/bits/ranges_uninitialized.h:
 
@@ -860,8 +867,6 @@ CMakeFiles/bch4836.dir/bch4836.cpp.o: ../bch4836.cpp \
 
 /usr/include/c++/11/bits/nested_exception.h:
 
-/usr/include/c++/11/bits/streambuf.tcc:
-
 /usr/include/c++/11/tr1/bessel_function.tcc:
 
 /usr/include/c++/11/bits/ranges_util.h:
@@ -910,6 +915,8 @@ CMakeFiles/bch4836.dir/bch4836.cpp.o: ../bch4836.cpp \
 
 /usr/include/x86_64-linux-gnu/bits/types/__FILE.h:
 
+/usr/include/c++/11/cstring:
+
 /usr/include/math.h:
 
 /usr/lib/gcc/x86_64-linux-gnu/11/include/stddef.h:
@@ -950,6 +957,10 @@ CMakeFiles/bch4836.dir/bch4836.cpp.o: ../bch4836.cpp \
 
 /usr/include/c++/11/tr1/riemann_zeta.tcc:
 
+/usr/include/c++/11/bits/streambuf.tcc:
+
+/usr/include/string.h:
+
 /usr/include/c++/11/cwctype:
 
 /usr/include/x86_64-linux-gnu/c++/11/bits/ctype_inline.h:
@@ -963,5 +974,3 @@ CMakeFiles/bch4836.dir/bch4836.cpp.o: ../bch4836.cpp \
 /usr/include/x86_64-linux-gnu/c++/11/bits/time_members.h:
 
 /usr/include/x86_64-linux-gnu/c++/11/bits/messages_members.h:
-
-/usr/include/c++/11/bits/locale_conv.h:

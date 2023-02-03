@@ -3,6 +3,7 @@
 #include <bitset>
 #include <chrono>
 #include <cmath>
+#include <cstring>
 #include <iomanip>
 #include <iostream>
 #include <fstream>
@@ -28,14 +29,15 @@ class BCH_code_short_t3 {
             generate_gf();	// generate the Galois Field GF(2**m) (GF(64))
             gen_poly();		// Compute the generator polynomial g(x) of BCH code
         }
-        vector <bitset <k>> bits_to_bitsets (const vector <bool> &buffer_bits);
-        vector <bool> bytes_to_bits (const vector <unsigned char> &buffer, const int fileSize);
-        vector <bool> bitset_to_bits (const vector <bitset <k>> &vector_of_bits);
-        vector <char> bits_to_bytes (const vector <bool> &recovered_bits, const int fileSize);
+        vector <bool> bytes_to_bits (const vector <unsigned char> &Buffer);
+        vector <char> bits_to_bytes (const vector <bool> &Recovered_bits, const int fileSize);
+        vector <bitset <k>> bits_to_bitsets (const vector <bool> &Buffer_bits);
+        vector <bool> bitset_to_bits (const vector <bitset <k>> &Bector_of_bits);
         bitset <n> generate_data();
         bitset <n> encode_bch(const bitset <n> &Data);
         void print_codeword_and_received_codeword(const bitset <n> &Codeword, const bitset <n> &Received_Codeword);
         void print_message_and_decoded_message(const bitset <n> &Data, const bitset <k> &Decoded_Data);
+        bitset <n> introduce_errors(const bitset <n> &Codeword, const int &Probability);
         template <size_t N>
         string print_wihtout_zeros(const bitset <N> &Polynomial, const uint &Not_Zeros);
         pair<bitset <k>, bool> decode_bch(const bitset <n> &Received_Codeword);
@@ -55,14 +57,14 @@ class BCH_code_short_t3 {
         void generate_gf();
         void gen_poly();
         template <size_t N>
-        int MSB(const bitset <N> &polynomial);
-        vector <int> calculate_syndromes(const bitset <n> &Received_Codeword, bool &syn_error);
-        void verbose_polynomial(const bitset <n> &polynomial);
+        int MSB(const bitset <N> &Polynomial);
+        vector <int> calculate_syndromes(const bitset <n> &Received_Codeword, bool &Syn_error);
+        void verbose_polynomial(const bitset <n> &Polynomial);
         template <size_t N>
-        void reverse_bitset(bitset <N> &polynomial, int shift);
-        uint multiply_uint_polynomials(uint mulitplicand, uint multiplicator);
-        bitset <n> multiply_bitset_polynomials(const bitset <n> &mulitplicand, const bitset <n> &multiplicator);
-        pair<bitset <n>, bitset <n>> divide_bitset_polynomials(const bitset <n> &dividend, const bitset <n> &divisor);
+        void reverse_bitset(bitset <N> &Polynomial, int Shift);
+        uint multiply_uint_polynomials(uint Mulitplicand, uint Multiplicator);
+        bitset <n> multiply_bitset_polynomials(const bitset <n> &Mulitplicand, const bitset <n> &Multiplicator);
+        pair<bitset <n>, bitset <n>> divide_bitset_polynomials(const bitset <n> &Dividend, const bitset <n> &Divisor);
 };
 		/*
 		block n n = 63 --> 64-1  Gf(2**6)
