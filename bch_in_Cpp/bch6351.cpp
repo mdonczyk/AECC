@@ -552,7 +552,8 @@ bitset <n> BCH_code_long_t2::introduce_errors(const bitset <n> &Codeword, const 
     std::uniform_int_distribution<> d(0, Probability);
     for (int i = n - 1; i >= 0; i--) {
         int randnum = d(gen);
-        if (randnum == 0) {
+		int secrandnum = d(gen);
+        if (randnum == secrandnum) {
             modified_codeword.flip(i);
         }
     }
