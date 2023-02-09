@@ -40,8 +40,6 @@ namespace BCH {
     uint multiply_uint_polynomials(uint Mulitplicand, uint Multiplicator);
     template <size_t N>
     void reverse_bitset(bitset <N> &Polynomial, int Shift);
-    template <size_t N>
-    string print_wihtout_zeros(const bitset <N> &Polynomial, const uint &Not_Zeros);
     void initialize_BCH() {
         read_p();
         generate_gf();

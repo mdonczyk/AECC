@@ -120,7 +120,7 @@ void BCH::gen_poly() {
 	// generator_polynomial = 1100100100111 but the program won't work with it lol so we have to manually set another value
 	generator_polynomial_bitset = generator_polynomial;
 	reverse_bitset(generator_polynomial_bitset, k-1);
-	cout << "g(x) is set to " << print_wihtout_zeros(generator_polynomial_bitset, n-k+1) << endl;
+	cout << "g(x) is set to " << generator_polynomial_bitset.to_string().substr(n - (n-k+1)) << endl;
 	if (!verbose){
 		cout<<"Please be patient, calculating..." << endl;
 	}
@@ -489,11 +489,6 @@ void BCH_code_long_t3::print_message_and_decoded_message(const bitset <n> &Data,
 	}
 }
 
-template <size_t N>
-string BCH::print_wihtout_zeros(const bitset <N> &Polynomial, const uint &Not_Zeros) {
-	return (Polynomial.to_string().substr(N - Not_Zeros));
-}
-
 bitset <n> BCH_code_long_t3::introduce_errors(const bitset <n> &Codeword, const int &Probability) {
 	bitset <n> modified_codeword = Codeword;
     std::random_device rd;
@@ -525,18 +520,6 @@ vector <bitset <k>> bits_to_bitsets (const vector <bool> &Buffer_bits) {
     return vector_of_bitsets;
 }
 
-vector <bool> bitset_to_bits (const vector <bitset <k>> &Vector_of_bitsets) {
-// put all bits from bitset into a bool vector:
-    vector <bool> recovered_bits;
-    for (auto const &bits : Vector_of_bitsets) {
-        for (int j = 0; j < k; j++) {
-            recovered_bits.push_back(bits[j]);
-        }
-    }
-    return recovered_bits;
-}
-
-
 vector <bool> bytes_to_bits (const vector <unsigned char> &Buffer) {
     // put each bit of the char stream into a bool vector:
     vector <bool> buffer_bits;
@@ -551,14 +534,21 @@ vector <bool> bytes_to_bits (const vector <unsigned char> &Buffer) {
     return buffer_bits;
 }
 
-vector <char> bits_to_bytes (const vector <bool> &bits, const int fileSize) {
-// put bits from buffer_bits into vector of chars:
+vector <unsigned char> bitset_to_bytes (const vector <bitset <k>> &Vector_of_bitsets, const int fileSize) {
+	// put all bits from bitset into a bool vector:
+    vector <bool> recovered_bits;
+    for (auto const &bits : Vector_of_bitsets) {
+        for (int j = 0; j < k; j++) {
+            recovered_bits.push_back(bits[j]);
+        }
+    }
+	// put bits from vecgor of bools into vector of unsigned chars:
     int it = 0;
-    vector <char> charstream;
+    vector <unsigned char> charstream;
     for (int i = 0; i <fileSize; i++) {
         char temp_char = 0;
             for (int j=0; j<8; j++) {
-            temp_char ^= (bits[it] << j);
+            temp_char ^= (recovered_bits[it] << j);
             it ++;
         }
         charstream.push_back(temp_char);
@@ -576,10 +566,10 @@ int main(int argc, char* argv[]) {
 		}
 	}
 	ofstream image_with_errors, image_fixed;
-    remove("images/image_with_errors_BCH_code_short_t3.bmp");
-	remove("images/image_fixed_BCH_code_short_t3.bmp");
-    image_with_errors.open ("images/image_with_errors_BCH_code_short_t3.bmp", ios::out | ios::app | ios::binary);
-    image_fixed.open ("images/image_fixed_BCH_code_short_t3.bmp", ios::out | ios::app | ios::binary);
+    remove("images/image_with_errors_BCH_code_long_t3.bmp");
+	remove("images/image_fixed_BCH_code_long_t3.bmp");
+    image_with_errors.open ("images/image_with_errors_BCH_code_long_t3.bmp", ios::out | ios::app | ios::binary);
+    image_fixed.open ("images/image_fixed_BCH_code_long_t3.bmp", ios::out | ios::app | ios::binary);
 
     // read the bytes to buffer:
     std::vector<unsigned char> buffer(std::istreambuf_iterator<char>(original_image), {});
@@ -646,13 +636,9 @@ int main(int argc, char* argv[]) {
 	auto dur = stop - start;
 	auto duration = std::chrono::duration_cast<std::chrono::duration<float>>(dur);
 
-	// put all bits from bitset into a bool vector:
-	vector <bool> modified_bits = bitset_to_bits(vector_of_modified_bitsets);
-	vector <bool> recovered_bits = bitset_to_bits(vector_of_recovered_bitsets);
-
-	// put bits from buffer_bits into vector of chars:
-	vector <char> modified_charstream = bits_to_bytes(modified_bits, buffer.size());
-	vector <char> recovered_charstream = bits_to_bytes(recovered_bits, buffer.size());
+	// put all bits from bitset into a char vector:
+	vector <unsigned char> modified_charstream = bitset_to_bytes(vector_of_modified_bitsets, buffer.size());
+	vector <unsigned char> recovered_charstream = bitset_to_bytes(vector_of_recovered_bitsets, buffer.size());
 
     // write all header bytes to new files without modification:
     for (int i = 0; i < HEADER_BYTES; i++) {
@@ -668,6 +654,7 @@ int main(int argc, char* argv[]) {
 
 	// compare bits from start and those after modification and decoding:
 	int difference_count = 0;
+	vector <bool> recovered_bits = bytes_to_bits(recovered_charstream);
 	for (int i = 0; i < buffer_bits.size(); i++) {
 		if (buffer_bits[i] != recovered_bits[i]) {
 			difference_count++;
@@ -706,7 +693,7 @@ int main(int argc, char* argv[]) {
 	cout << left << setw(38) << setfill('-') << "+" << setw(20) << "+" << setw(1) << "+" << setfill (' ') << endl;
 	
 	cout << endl << "Results have been written to BCH_logs.txt file" << endl;
-	cout << endl << "To view made images on linux use \"feh -F -Z --force-aliasing -d " <<  argv[1] << " images/image_with_errors_BCH_code_short_t3.bmp images/image_fixed_BCH_code_short_t3.bmp\"" << endl << endl;
+	cout << endl << "To view made images on linux use \"feh -F -Z --force-aliasing -d " <<  argv[1] << " images/image_with_errors_BCH_code_long_t3.bmp images/image_fixed_BCH_code_long_t3.bmp\"" << endl << endl;
 
 	// write all the infromation to BCH_logs.txt file
 	ofstream BCH_logs;
