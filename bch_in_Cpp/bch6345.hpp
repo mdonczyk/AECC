@@ -15,12 +15,11 @@
 
 using namespace std;
 
-#define GF 63 // Galois Field --> 2**m - 1 = 2**6 - 1
+#define GFB 63 // Galois Field --> 2**m - 1 = 2**6 - 1
 #define n 63
 #define t 3
 #define k 45
 #define HEADER_BYTES 30
-typedef unsigned long long ULL;
 
 // global counters:
 int success = 0;
@@ -37,7 +36,7 @@ string dash_line(n/2, '-');
 namespace BCH {
     // static variables:
     static int primitive_polynomial;
-    static int alpha_to[GF], index_of[GF];
+    static int alpha_to[GFB], index_of[GFB];
     static bitset <n> p;
     static bitset <n> generator_polynomial_bitset;
     static vector <int> zeros, g, errpos;

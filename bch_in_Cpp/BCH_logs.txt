@@ -1,0 +1,68 @@
+
++------------------------------------+-------------------+
+ Code used                           | (63,51,5)         
+ Original image used                 | images/image.bmp  
+ Given error probability             | 1 in 1000         
+ Real error probability              | 1 in 993          
+ Number of all bits                  | 961146            
+ Number of all bits + redundant bits | 1187298           
+ Number of all generated errors      | 1195              
+ Number of all message polynomials   | 18846             
+ Number of successful decodings      | 18762             
+ Number of decoding errors           | 0                 
+ Number of uncaught decoding errors  | 0                 
+ Number of over t errors in codeword | 0                 
+ Final bit difference                | 0                 
+ Encoding and decoding time          | 0.125 seconds     
++------------------------------------+-------------------+
+
++------------------------------------+-------------------+
+ Code used                           | (63,51,5)         
+ Original image used                 | images/image.bmp  
+ Given error probability             | 1 in 100          
+ Real error probability              | 1 in 100          
+ Number of all bits                  | 961146            
+ Number of all bits + redundant bits | 1187298           
+ Number of all generated errors      | 11831             
+ Number of all message polynomials   | 18846             
+ Number of successful decodings      | 18562             
+ Number of decoding errors           | 284               
+ Number of uncaught decoding errors  | 232               
+ Number of over t errors in codeword | 516               
+ Final bit difference                | 1718              
+ Encoding and decoding time          | 10.024 seconds    
++------------------------------------+-------------------+
+
++------------------------------------+-------------------+
+ Code used                           | (63,51,5)         
+ Original image used                 | images/image.bmp  
+ Given error probability             | 1 in 100          
+ Real error probability              | 1 in 100          
+ Number of all bits                  | 961146            
+ Number of all bits + redundant bits | 1187298           
+ Number of all generated errors      | 11767             
+ Number of all message polynomials   | 18846             
+ Number of successful decodings      | 18609             
+ Number of decoding errors           | 237               
+ Number of uncaught decoding errors  | 257               
+ Number of over t errors in codeword | 494               
+ Final bit difference                | 1684              
+ Encoding and decoding time          | 9.066 seconds     
++------------------------------------+-------------------+
+
++------------------------------------+-------------------+
+ Code used                           | (63,51,5)         
+ Original image used                 | images/image.bmp  
+ Given error probability             | 1 in 100          
+ Real error probability              | 1 in 100          
+ Number of all bits                  | 961146            
+ Number of all bits + redundant bits | 1187298           
+ Number of all generated errors      | 11821             
+ Number of all message polynomials   | 18846             
+ Number of successful decodings      | 18491             
+ Number of decoding errors           | 281               
+ Number of uncaught decoding errors  | 211               
+ Number of over t errors in codeword | 492               
+ Final bit difference                | 1572              
+ Encoding and decoding time          | 0.122 seconds     
++------------------------------------+-------------------+

@@ -10,13 +10,13 @@ void BCH::read_p() {
 
 template <size_t N>
 int BCH::MSB(const bitset <N> &Polynomial) {
-	return (N + (GF-N) - countl_zero(Polynomial.to_ullong()));
+	return (N + (GFB-N) - __countl_zero(Polynomial.to_ullong()));
 }
 
 void BCH::generate_gf() {
 	index_of[0] = -1;
 	int m = MSB(p);
-	for (int i = 0; i < GF; i++) {
+	for (int i = 0; i < GFB; i++) {
 		if (i < m) {
 			alpha_to[i] = 1 << i;
 			index_of[alpha_to[i]] = i;
@@ -42,7 +42,7 @@ void BCH::gen_poly() {
 		int j = -1;
 		while (true) {
 			j++;
-			coset.push_back((coset[j] << 1) % GF);
+			coset.push_back((coset[j] << 1) % GFB);
 			//check if element is unique
 			auto status = unique_numbers.emplace(coset[j]);
 			if (!status.second) {
@@ -50,7 +50,7 @@ void BCH::gen_poly() {
 			}
 			// if the first element in coset will be equal to the next element so that we know if 
 			// we made a full circle and its time to push to vector
-			if (coset[0] == (coset[j+1] << 1) % GF) {
+			if (coset[0] == (coset[j+1] << 1) % GFB) {
 				cycle_cosets.push_back(coset);
 				break;
 			}
@@ -77,10 +77,10 @@ void BCH::gen_poly() {
 	}
 	//calculate minimal polynomials
 	vector <int> min_polynomials;
-	ULL first_factor, second_factor;
+	unsigned long long first_factor, second_factor;
 	// multiply all elements from one zero coset and then all elements from second zero coset
 	for (const auto& zero_coset : zeros_deluxe) {
-		ULL product = 0;
+		unsigned long long product = 0;
 		for (uint i=1; i<zero_coset.size(); i++) {
 			if (i == 1) {
 				first_factor = alpha_to[zero_coset[i-1]] ^ 2; // (ax + x)
@@ -90,7 +90,7 @@ void BCH::gen_poly() {
 			second_factor = alpha_to[zero_coset[i]] ^ 2;
 			product = multiply_uint_polynomials(first_factor, second_factor);
 		}
-		product %= GF+1;
+		product %= GFB+1;
 		product ^= primitive_polynomial;
 		min_polynomials.push_back(product);
 	}
@@ -133,7 +133,7 @@ vector <int> BCH_code_short_t2::calculate_syndromes(bool &Syn_error) {
 		syndromes[i] = 0;
 		for (int j=0; j<n; j++) {
 			if (this->Received_Codeword[n-j-1] != 0) {
-				syndromes[i] ^= BCH::alpha_to[(i*j) % GF];
+				syndromes[i] ^= BCH::alpha_to[(i*j) % GFB];
 			}
 		}
 		// convert syndrome from polynomial form to index form
@@ -239,7 +239,7 @@ pair<bitset<k>,bool> BCH_code_short_t2::decode_bch(const bitset <n> &Received_Co
 				}
 				for (int i = 0; i <= l[q]; i++) {
 					if (elp[q][i] != -1) {
-						elp[u + 1][i + u - q] = BCH::alpha_to[(d[u] + GF - d[q] + elp[q][i]) % GF];
+						elp[u + 1][i + u - q] = BCH::alpha_to[(d[u] + GFB - d[q] + elp[q][i]) % GFB];
 					}
 				}
 				for (int i = 0; i <= l[u]; i++) {
@@ -258,7 +258,7 @@ pair<bitset<k>,bool> BCH_code_short_t2::decode_bch(const bitset <n> &Received_Co
 				}
 				for (int i = 1; i <= l[u + 1]; i++) {
 					if ((s[u + 1 - i] != -1) && (elp[u + 1][i] != 0)) {
-						d[u + 1] ^= BCH::alpha_to[(s[u + 1 - i] + BCH::index_of[elp[u + 1][i]]) % GF];
+						d[u + 1] ^= BCH::alpha_to[(s[u + 1 - i] + BCH::index_of[elp[u + 1][i]]) % GFB];
 					}
 				}
 				// put d[u+1] into index form
@@ -282,15 +282,15 @@ pair<bitset<k>,bool> BCH_code_short_t2::decode_bch(const bitset <n> &Received_Co
 			if (verbose) {
 				cout << endl << "Roots: ";
 			}
-			for (int i = 1; i <= GF; i++) {
+			for (int i = 1; i <= GFB; i++) {
 				int q = 1;
 				for (int j = 1; j <= l[u]; j++) {
-					elp[u][j] = (elp[u][j] + j) % GF;
+					elp[u][j] = (elp[u][j] + j) % GFB;
 					q ^= BCH::alpha_to[elp[u][j]];
 				}
 				// Store error location number indices
 				if (!q) {
-					error_locations.push_back(n - i + (GF-n));
+					error_locations.push_back(n - i + (GFB-n));
 					if (verbose) {
 						cout << error_locations.back() << " ";
 					}
@@ -412,9 +412,9 @@ void BCH_code_short_t2::print_original_codeword_and_received_codeword(const bits
 				cout<< endl << "Positions of errors: ";
 			}
 			while (bit_difference != 0) {
-				int temp = countl_zero(bit_difference.to_ullong());
-				cout << temp -(GF - n) -1 << " ";
-				bit_difference.flip(GF-temp);
+				int temp = __countl_zero(bit_difference.to_ullong());
+				cout << temp -(GFB - n) -1 << " ";
+				bit_difference.flip(GFB-temp);
 			}
 		}
 	} else {
@@ -603,7 +603,7 @@ int main(int argc, char* argv[]) {
 	// end time clock and show the time:
 	auto stop = chrono::high_resolution_clock::now();
 	auto dur = stop - start;
-	auto duration = duration_cast<chrono::duration<float>>(dur);
+	auto duration = chrono::duration_cast<chrono::duration<float>>(dur);
 	// put all bits from bitset into a char vector:
 	vector <unsigned char> modified_charstream = bitset_to_bytes(vector_of_modified_bitsets, buffer.size());
 	vector <unsigned char> recovered_charstream = bitset_to_bytes(vector_of_recovered_bitsets, buffer.size());

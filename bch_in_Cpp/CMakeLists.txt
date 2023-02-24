@@ -13,4 +13,3 @@ add_executable(bch6345 bch6345.cpp bch6345.hpp)
 add_executable(bch4836 bch4836.cpp bch4836.hpp)
 
 add_executable(bch4830 bch4830.cpp bch4830.hpp)
-
