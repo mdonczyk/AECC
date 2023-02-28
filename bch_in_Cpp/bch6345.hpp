@@ -8,17 +8,23 @@
 #include <iostream>
 #include <fstream>
 #include <memory>
+#include <mutex>
 #include <random>
 #include <set>
+#include <thread>
 #include <time.h>
 #include <vector>
+#include <fcntl.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 using namespace std;
 
-#define GFB 63 // Galois Field --> 2**m - 1 = 2**6 - 1
+#define GFB 63 // Galois Field Barrier = 2**m - 1 = 2**6 - 1
 #define n 63
-#define t 3
 #define k 45
+#define t 3
 #define HEADER_BYTES 30
 
 // global counters:
@@ -27,20 +33,34 @@ int failure = 0;
 int uncaught_errors = 0;
 int big_errors = 0;
 int total_errors = 0;
+
+// verbose logs and sequential threads flag (off by default):
 bool verbose = false;
 
 // stylistic:
-string line(n/2, '*');
-string dash_line(n/2, '-');
+const string LINE(n/2 - 4, '*');
+const string DASH_LINE(n/2, '-');
+
+class BCH_code_long_t3; // forward declaration
 
 namespace BCH {
-    // static variables:
-    static int primitive_polynomial;
-    static int alpha_to[GFB], index_of[GFB];
-    static bitset <n> p;
-    static bitset <n> generator_polynomial_bitset;
-    static vector <int> zeros, g, errpos;
-    static vector <vector <int>> zeros_deluxe;
+    // variables:
+    int m;
+    int primitive_polynomial;
+    int alpha_to[GFB], index_of[GFB];
+    bitset <n> p;
+    bitset <n> generator_polynomial_bitset;
+    vector <int> zeros, g, errpos;
+    vector <vector <int>> zeros_cosets;
+    int error_probability;
+    mutex Mutex;
+    // vectors:
+    vector <unique_ptr<BCH_code_long_t3>> BCH_objects;
+    vector <bitset <k>> vector_of_bitsets;
+    vector <bitset <k>> vector_of_modified_bitsets;
+	vector <bitset <k>> vector_of_recovered_bitsets;
+    vector <unsigned char> recovered_charstream;
+    vector <unsigned char> modified_charstream;
     // functions:
     /**
      * Read the primitive polynomial of degree 6 from binary form
@@ -57,7 +77,7 @@ namespace BCH {
     template <size_t N>
     int MSB(const bitset <N> &Polynomial);
     void verbose_polynomial(const bitset <n> &Polynomial);
-    uint multiply_uint_polynomials(uint Mulitplicand, uint Multiplicator);
+    int multiply_int_polynomials(int Mulitplicand, int Multiplicator);
     template <size_t N>
     void reverse_bitset(bitset <N> &Polynomial, int Shift);
     /**
@@ -73,8 +93,7 @@ namespace BCH {
 
 class BCH_code_long_t3 {
 	public:
-        BCH_code_long_t3 (bitset<n> data, int error_probability) {
-            Data = data;
+        BCH_code_long_t3 (const bitset<n> data, const int error_probability) : Data(data) {
             Codeword = encode_bch(Data);
             Received_Codeword = introduce_errors(Codeword, error_probability);
             print_original_codeword_and_received_codeword(Codeword, Received_Codeword);
@@ -123,7 +142,6 @@ class BCH_code_long_t3 {
         pair<bitset <k>, bool> Decoded_Data;
 
     private:
-        vector <int> calculate_syndromes(bool &Syn_error);;
-        bitset <n> multiply_bitset_polynomials(const bitset <n> &Mulitplicand, const bitset <n> &Multiplicator);
+        vector <int> calculate_syndromes(const bitset<n> &Received_Codeword, bool &errors_in_codeword);
         pair<bitset <n>, bitset <n>> divide_bitset_polynomials(const bitset <n> &Dividend, const bitset <n> &Divisor);
 };

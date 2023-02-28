@@ -88,7 +88,7 @@ void BCH::gen_poly() {
 	// all elements from second zero coset
 	for (const auto& zero_coset : zeros_cosets) {
 		int product = alpha_to[zero_coset[0]] ^ 2; // (ax + x)
-		for (int i = 1; i < zero_coset.size(); i++) {
+		for (uint i = 1; i < zero_coset.size(); i++) {
 			product = multiply_int_polynomials(product, alpha_to[zero_coset[i]] ^ 2);
 		}
 		product %= GFB+1;
@@ -479,7 +479,8 @@ void begin_main_process(const int thread_id, const int thread_zone_beginning, co
 	if (verbose) { Mutex.unlock(); }
 }
 
-void populate_vector_of_bitsets (unsigned char* str, const int thread_zone_beginning, const int thread_zone_end,  const int vector_zone_beginning, const int Bit_pos) {
+void populate_vector_of_bitsets (unsigned char* str, const int thread_zone_beginning, const int thread_zone_end, 
+									const int vector_zone_beginning, const int Bit_pos) {
 	// Convert the byte data to bitset data
 	bitset<k> temp_bitset;
 	int it = vector_zone_beginning;
@@ -502,7 +503,8 @@ void populate_vector_of_bitsets (unsigned char* str, const int thread_zone_begin
 	}
 }
 
-void populate_unsigned_char_vectors (const int thread_zone_beginning, const int thread_zone_end, const int vector_zone_beginning, const int Bit_pos) {;
+void populate_unsigned_char_vectors (const int thread_zone_beginning, const int thread_zone_end, 
+										const int vector_zone_beginning, const int Bit_pos) {
 	// Convert the bitset data to byte data for recovered data and then modified data
 	int it = vector_zone_beginning;
 	int bit_pos = Bit_pos;
@@ -562,23 +564,7 @@ int main(int argc, const char* argv[]) {
 			return 0;
 		}
 	}
-	string image_with_errors_path = string(argv[2]).append("_with_errors_BCH_code_long_t2.bmp");
-	string image_fixed_path = string(argv[2]).append("_fixed_BCH_code_long_t2.bmp");
-	remove(image_with_errors_path.c_str());
-	remove(image_fixed_path.c_str());
-	ofstream image_with_errors (image_with_errors_path.c_str(), ios::out | ios::app | ios::binary);
-	ofstream image_fixed (image_fixed_path.c_str(), ios::out | ios::app | ios::binary);
-	
-	const int NUM_THREADS = thread::hardware_concurrency();
-	cout << "number of detected threads: " << NUM_THREADS << endl;
 
-	// Create a vector to hold the thread objects
-	vector<thread> threads;
-
-	cout << "Parsing image file..." << endl;
-	auto start = chrono::high_resolution_clock::now();
-
-	// parse the file using mmap, meaning map the memory of original image and make bitsets of unsigned chars using it just like normal array
 	// declare stat structure
 	struct stat sb;
 	if (fstat(fd, &sb) == -1) {
@@ -594,8 +580,30 @@ int main(int argc, const char* argv[]) {
 		fd, 
 		0);
 
+	// Remove existing image that was fixed and one that had errors and open new files with correct flags
+	string image_with_errors_path = string(argv[2]).append("_with_errors_BCH_code_long_t2.bmp");
+	string image_fixed_path = string(argv[2]).append("_fixed_BCH_code_long_t2.bmp");
+	remove(image_with_errors_path.c_str());
+	remove(image_fixed_path.c_str());
+	ofstream image_with_errors (image_with_errors_path.c_str(), ios::out | ios::app | ios::binary);
+	ofstream image_fixed (image_fixed_path.c_str(), ios::out | ios::app | ios::binary);
+
 	// get the number of all message polynomials created from read file
 	const ssize_t NUMBER_OF_MESSAGE_POLYNOMIALS = (sb.st_size*8)/k + 1;
+	
+	// Resize vectors with enough space to hold all the bitsets
+	vector_of_bitsets.resize(NUMBER_OF_MESSAGE_POLYNOMIALS);
+	vector_of_modified_bitsets.resize(NUMBER_OF_MESSAGE_POLYNOMIALS);
+	vector_of_recovered_bitsets.resize(NUMBER_OF_MESSAGE_POLYNOMIALS);
+	BCH_objects.resize(NUMBER_OF_MESSAGE_POLYNOMIALS);
+	recovered_charstream.resize(sb.st_size);
+	modified_charstream.resize(sb.st_size);
+	
+	const int NUM_THREADS = thread::hardware_concurrency();
+	cout << "number of detected threads: " << NUM_THREADS << endl;
+
+	// Create a vector to hold the thread objects
+	vector<thread> threads;
 	
 	// divide number of all bitsets in the whole message into equal zones depending on the NUM_THREADS value
 	const int THREAD_ZONE = NUMBER_OF_MESSAGE_POLYNOMIALS / NUM_THREADS;
@@ -603,13 +611,8 @@ int main(int argc, const char* argv[]) {
 	// divide number of all bytes in the whole message into equal zones depending on the NUM_THREADS value
 	const int BIG_THREAD_ZONE = sb.st_size / NUM_THREADS;
 
-	// Resize vectors with enough space to hold all the bitsets
-	vector_of_bitsets = vector <bitset <k>> (NUMBER_OF_MESSAGE_POLYNOMIALS);
-	vector_of_modified_bitsets = vector <bitset <k>> (NUMBER_OF_MESSAGE_POLYNOMIALS);
-	vector_of_recovered_bitsets = vector <bitset <k>> (NUMBER_OF_MESSAGE_POLYNOMIALS);
-	BCH_objects = vector <unique_ptr<BCH_code_long_t2>> (NUMBER_OF_MESSAGE_POLYNOMIALS);
-	recovered_charstream = vector <unsigned char> (sb.st_size);
-	modified_charstream = vector <unsigned char> (sb.st_size);
+	cout << "Parsing image file..." << endl;
+	auto start = chrono::high_resolution_clock::now();
 
 	int old_bit_pos = 0;
 	int overhang = 0;
@@ -623,7 +626,8 @@ int main(int argc, const char* argv[]) {
 		if (bit_pos < old_bit_pos) { overhang++; }
 		int vector_zone_beginning = THREAD_ZONE*thread_id + overhang;
 		old_bit_pos = bit_pos;
-		threads.push_back(thread(populate_vector_of_bitsets, buffer, thread_zone_beginning, thread_zone_end, vector_zone_beginning, bit_pos));
+		threads.push_back(thread(populate_vector_of_bitsets, buffer, thread_zone_beginning, 
+									thread_zone_end, vector_zone_beginning, bit_pos));
 	}
 	// Wait for the threads to complete
 	for (auto& thread : threads) {
@@ -634,9 +638,10 @@ int main(int argc, const char* argv[]) {
 	auto dur = stop - start;
 	auto duration = chrono::duration_cast<chrono::duration<float>>(dur);
 
-	cout << "Parsing image file done and it took: "<< to_string(duration.count()).substr(0, to_string(duration.count()).length()-3) << " seconds" << endl;
+	cout << "Parsing image file done and it took: ";
+	cout << to_string(duration.count()).substr(0, to_string(duration.count()).length()-3) << " seconds" << endl;
 
-	// start the clock
+	// start the main clock
 	start = chrono::high_resolution_clock::now();
 
 	BCH::initialize_BCH();
@@ -658,16 +663,16 @@ int main(int argc, const char* argv[]) {
 		thread.join();
 	}
 
-	// end time clock and show the time
+	// end main time clock
 	stop = chrono::high_resolution_clock::now();
 	dur = stop - start;
 	auto main_duration = chrono::duration_cast<chrono::duration<float>>(dur);
 
-	cout << "Coding and decoding process done and it took: "<< to_string(main_duration.count()).substr(0, to_string(main_duration.count()).length()-3) << " seconds" << endl;
-
-	start = chrono::high_resolution_clock::now();
+	cout << "Coding and decoding process done and it took: ";
+	cout << to_string(main_duration.count()).substr(0, to_string(main_duration.count()).length()-3) << " seconds" << endl;
 
 	cout << "Converting modified and recovered data from bitsets to bytes..." << endl;
+	start = chrono::high_resolution_clock::now();
 
 	threads.clear();
 	old_bit_pos = 0;
@@ -682,7 +687,8 @@ int main(int argc, const char* argv[]) {
 		if (bit_pos < old_bit_pos) { overhang++; }
 		int vector_zone_beginning = THREAD_ZONE*thread_id + overhang;
 		old_bit_pos = bit_pos;
-		threads.push_back(thread(populate_unsigned_char_vectors, thread_zone_beginning, thread_zone_end, vector_zone_beginning, bit_pos));
+		threads.push_back(thread(populate_unsigned_char_vectors, thread_zone_beginning, thread_zone_end, 
+									vector_zone_beginning, bit_pos));
 	}
 	// Wait for the threads to complete
 	for (auto& thread : threads) {
@@ -693,7 +699,8 @@ int main(int argc, const char* argv[]) {
 	dur = stop - start;
 	duration = chrono::duration_cast<chrono::duration<float>>(dur);
 
-	cout << "Converting modified and recovered data from bitsets to bytes done and it took: "<< to_string(duration.count()).substr(0, to_string(duration.count()).length()-3) << " seconds" << endl;
+	cout << "Converting modified and recovered data from bitsets to bytes done and it took: ";
+	cout << to_string(duration.count()).substr(0, to_string(duration.count()).length()-3) << " seconds" << endl;
 
 	// write all header bytes to new files without modification
 	for (int i = 0; i < HEADER_BYTES; i++) {
@@ -711,10 +718,6 @@ int main(int argc, const char* argv[]) {
 	for (int i = 0; i < NUMBER_OF_MESSAGE_POLYNOMIALS; i++) {
 		difference_count += (vector_of_bitsets[i] ^ vector_of_recovered_bitsets[i]).count();
 	}
-
-	// unmap the memory mapped file and close it
-	munmap(buffer, sb.st_size);
-	close(fd);
 	
 	// show information about decoding
 	cout << endl << left << setw(38) << setfill('-') << "+" << setw(20) << "+" << setw(1) << "+" << setfill (' ') << endl;
@@ -770,6 +773,9 @@ int main(int argc, const char* argv[]) {
 	BCH_logs << setw(37) <<" Encoding and decoding time " << setw(20) << "| " + to_string(main_duration.count()).substr(0, to_string(main_duration.count()).length()-3) + " seconds " << endl;
 	BCH_logs << left << setw(37) << setfill('-') << "+" << setw(20) << "+" << setw(1) << "+" << setfill (' ') << endl;
 
+	// unmap the memory mapped file and close it
+	munmap(buffer, sb.st_size);
+	close(fd);
     // close opened files:
     image_with_errors.close();
 	image_fixed.close();
