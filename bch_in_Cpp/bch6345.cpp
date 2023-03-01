@@ -581,8 +581,8 @@ int main(int argc, const char* argv[]) {
 		0);
 
 	// Remove existing image that was fixed and one that had errors and open new files with correct flags
-	string image_with_errors_path = string(argv[2]).append("_with_errors_BCH_code_long_t3.bmp");
-	string image_fixed_path = string(argv[2]).append("_fixed_BCH_code_long_t3.bmp");
+	string image_with_errors_path = string(argv[2]).substr(0, string(argv[2]).length()-4).append("_with_errors_BCH_code_long_t3.bmp");
+	string image_fixed_path = string(argv[2]).substr(0, string(argv[2]).length()-4).append("_fixed_BCH_code_long_t3.bmp");
 	remove(image_with_errors_path.c_str());
 	remove(image_fixed_path.c_str());
 	ofstream image_with_errors (image_with_errors_path.c_str(), ios::out | ios::app | ios::binary);

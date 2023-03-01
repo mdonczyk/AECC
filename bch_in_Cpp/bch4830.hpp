@@ -23,8 +23,8 @@ using namespace std;
 
 #define GFB 63 // Galois Field Barrier = 2**m - 1 = 2**6 - 1
 #define n 48
-#define k 36
-#define t 2
+#define k 30
+#define t 3
 #define HEADER_BYTES 30
 
 // global counters:
