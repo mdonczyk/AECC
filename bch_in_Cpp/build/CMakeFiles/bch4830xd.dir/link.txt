@@ -1,1 +1,0 @@
-/usr/bin/c++ CMakeFiles/bch4830xd.dir/bch4830.cpp.o -o ../bch4830xd 

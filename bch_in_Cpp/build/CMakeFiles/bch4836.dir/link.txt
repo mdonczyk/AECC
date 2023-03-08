@@ -1,1 +1,1 @@
-/usr/bin/c++ CMakeFiles/bch4836.dir/bch4836.cpp.o -o ../bch4836 
+/usr/bin/c++ -O3 -DNDEBUG CMakeFiles/bch4836.dir/bch4836.cpp.o -o ../bch4836 
