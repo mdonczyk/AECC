@@ -14,10 +14,6 @@ This folder also contains a very basic makefile and the source files are stored 
 This is the main file of this whole project.
 
 It contains 4 programs that take inspiration from two earlier mentioned programs
-but are written in C++ and are using Object-oriented programming ideas and many other better
-written functions.
+but are written in C++ and are using Object-oriented programming ideas, multithreading 
+and many other more clearly written functions.
 
-
-## *image_correcting file*
-This file contains first ideas about reading and writing bits from and to picture 
-and first error generating ideas. 
