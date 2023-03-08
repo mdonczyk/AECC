@@ -1,6 +1,0 @@
-/home/mdonczyk/AECC/bch_in_Cpp/build/CMakeFiles/bch6351.dir
-/home/mdonczyk/AECC/bch_in_Cpp/build/CMakeFiles/bch6345.dir
-/home/mdonczyk/AECC/bch_in_Cpp/build/CMakeFiles/bch4836.dir
-/home/mdonczyk/AECC/bch_in_Cpp/build/CMakeFiles/bch4830.dir
-/home/mdonczyk/AECC/bch_in_Cpp/build/CMakeFiles/edit_cache.dir
-/home/mdonczyk/AECC/bch_in_Cpp/build/CMakeFiles/rebuild_cache.dir
