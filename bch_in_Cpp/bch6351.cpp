@@ -10,9 +10,8 @@ void BCH::read_p() {
 	verbose_polynomial(p);
 }
 
-template <size_t N>
-int BCH::MSB(const bitset <N> &Polynomial) {
-	return (N + (GFB-N) - __countl_zero(Polynomial.to_ullong()));
+int BCH::MSB(const bitset <n> &Polynomial) {
+	return (n + (GFB-n) - countl_zero(Polynomial.to_ullong()));
 }
 
 void BCH::generate_gf() {
@@ -41,7 +40,6 @@ void BCH::gen_poly() {
 	cycle_cosets.push_back(vector<int>{0});
 	while (unique_elements.size() < GFB) {
 		status.second = false;
-		//check if the first element is unique
 		while (!status.second) {
 				coset_element++;
 				status = unique_elements.emplace(coset_element);
@@ -50,20 +48,16 @@ void BCH::gen_poly() {
 		coset.push_back(coset_element);
 		for (int i = 1; i < m; i++) {
 			coset.push_back((coset[i-1] << 1) % GFB);
-			//check if element is unique
 			status = unique_elements.emplace(coset[i]);
 			if (!status.second) {
 				break;
 			}
-			// if the first element in coset will be equal to the next element so that we know if 
-			// we made a full circle and its time to push to vector
 			if (coset[0] == (coset[i] << 1) % GFB) {
 				cycle_cosets.push_back(coset);
 				break;
 			}
 		}
 	}
-	// Search for roots 1, 2, ..., 2*t in cycle sets
 	for (const auto& coset : cycle_cosets) {
 		bool root_found = false;
 		for (const auto& element : coset) {
@@ -73,7 +67,6 @@ void BCH::gen_poly() {
 					break;
 				}
 			if(root_found) {
-			//populate zeros with cosets that have roots 1 to 2*t
 				zeros_cosets.push_back(coset);
 				break;
 			}
@@ -82,10 +75,7 @@ void BCH::gen_poly() {
 			break;
 		}
 	}
-	//calculate minimal polynomials
 	vector <int> min_polynomials;
-	// multiply all elements from one zero coset and then 
-	// all elements from second zero coset
 	for (const auto& zero_coset : zeros_cosets) {
 		int product = alpha_to[zero_coset[0]] ^ 2; // (ax + x)
 		for (uint i = 1; i < zero_coset.size(); i++) {
@@ -95,7 +85,6 @@ void BCH::gen_poly() {
 		product ^= primitive_polynomial;
 		min_polynomials.push_back(product);
 	}
-	// Compute generator polynomial by multiplying minimal polynomials
 	int generator_polynomial = min_polynomials[0];
 	for (uint i=1; i<t; i++) {
 		generator_polynomial = multiply_int_polynomials(generator_polynomial, min_polynomials[i]);
@@ -107,13 +96,9 @@ void BCH::gen_poly() {
 }
 
 bitset<n> BCH_code_long_t2::encode_bch(const bitset<n> &Data) {
-	// to calculate redundant bits, get the remainder of 
-	// Data shifted by n-k bits divided by generator polynomial
 	bitset<n> Codeword;
 	bitset<n> Shifted_Data = Data<<(n-k);
 	bitset<n> rb = divide_bitset_polynomials(Shifted_Data, generator_polynomial_bitset).first;
-	// systematic encoding: The message as a suffix, 
-	// first n-k bits are redundancy, last k bits are message
 	Codeword = Shifted_Data ^ rb;
 	if (verbose) {
 		cout << endl;
@@ -130,7 +115,6 @@ vector <int> BCH_code_long_t2::calculate_syndromes(const bitset<n> &Received_Cod
 				syndromes[i] ^= alpha_to[(i*j) % GFB];
 			}
 		}
-		// convert syndrome from polynomial form to index form
 		syndromes[i] = index_of[syndromes[i]];
 		if (syndromes[i] != -1) {
 			errors_in_codeword = true;
@@ -168,8 +152,7 @@ pair<bitset<k>, bool> BCH_code_long_t2::decode_bch(const bitset <n> &Received_Co
 	 the decoder assumes that there are more than t errors and cannot correct
 	 them, only detect them. We output the information bits uncorrected.
 	*/
-	
-	// first form the syndromes
+
 	bool errors_in_codeword = false;
 	vector <int> syndromes = calculate_syndromes(Received_Codeword, errors_in_codeword);
 	bitset <n> Decoded_Codeword = Received_Codeword;
@@ -178,7 +161,7 @@ pair<bitset<k>, bool> BCH_code_long_t2::decode_bch(const bitset <n> &Received_Co
 		 Compute the error location polynomial via the Berlekamp
 		 iterative algorithm. Following the terminology of Lin and
 		 Costello's book :   d[u] is the 'mu'th discrepancy, where
-		 u='mu'+1 and 'mu' (the Greek letter!) is the step number
+		 u='mu'+1 and 'mu' is the step number
 		 ranging from -1 to 2*t (see L&C),  l[u] is the degree of
 		 the elp at that step, and u_l[u] is the difference between
 		 the step number and the degree of the elp. 
@@ -330,7 +313,7 @@ pair<bitset<k>, bool> BCH_code_long_t2::decode_bch(const bitset <n> &Received_Co
 	return {Decoded_Message, true};
 }
 
-void BCH::verbose_polynomial(const bitset <n> &Polynomial) { //human readable polynomial format
+void BCH::verbose_polynomial(const bitset <n> &Polynomial) {
 	int power = MSB(Polynomial);
 	for (int i=power; i>=0; i--) {
 		if (Polynomial[i]) {
@@ -338,7 +321,11 @@ void BCH::verbose_polynomial(const bitset <n> &Polynomial) { //human readable po
 				cout << " + " ;
 			}
 			if (i!=0) {
+				if (i == 1) {
+					cout << "x";
+				} else {
 				cout << "x^" << i;
+				}
 			} else {
 				cout << "1";
 			}
@@ -414,7 +401,6 @@ void BCH_code_long_t2::print_original_message_and_decoded_message(const bitset <
 		cout << "Original Data  = " << Original_Data << endl;
 		cout << "Recovered Data = " << Decoded_Data<< endl;
 	}
-	// decoding errors: we compare only the Data portion
 	bitset <k> bit_difference = Original_Data ^ Decoded_Data;
 	if (bit_difference.count()) {
 		if (verbose) {
@@ -467,9 +453,7 @@ void begin_main_process(const int thread_id, const int thread_zone_beginning, co
 		if (verbose) {
 			cout << LINE << " Worker " << thread_id << " START " << LINE;
 		}
-		// put generataed bitset as data to object
 		BCH_objects[i] = make_unique<BCH_code_long_t2>(bitset<n>(vector_of_bitsets[i].to_string()), error_probability);
-		// put Received_Data and Decoded_Data to vectors
 		vector_of_modified_bitsets[i] = BCH_objects[i] -> Received_Data;
 		vector_of_recovered_bitsets[i] = BCH_objects[i] -> Decoded_Data.first;
 		if (verbose) {
@@ -479,9 +463,8 @@ void begin_main_process(const int thread_id, const int thread_zone_beginning, co
 	if (verbose) { Mutex.unlock(); }
 }
 
-void populate_vector_of_bitsets (unsigned char* str, const int thread_zone_beginning, const int thread_zone_end, 
+void populate_vector_of_bitsets (const unsigned char* str, const int thread_zone_beginning, const int thread_zone_end, 
 									const int vector_zone_beginning, const int Bit_pos) {
-	// Convert the byte data to bitset data
 	bitset<k> temp_bitset;
 	int it = vector_zone_beginning;
 	int bit_pos = Bit_pos;
@@ -497,7 +480,6 @@ void populate_vector_of_bitsets (unsigned char* str, const int thread_zone_begin
 			}
 		}
 	}
-	// If there are any remaining bits in the last bitset, add it to the vector
 	if (bit_pos != 0) {
 		vector_of_bitsets[it] ^= temp_bitset;
 	}
@@ -505,7 +487,6 @@ void populate_vector_of_bitsets (unsigned char* str, const int thread_zone_begin
 
 void populate_unsigned_char_vectors (const int thread_zone_beginning, const int thread_zone_end, 
 										const int vector_zone_beginning, const int Bit_pos) {
-	// Convert the bitset data to byte data for recovered data and then modified data
 	int it = vector_zone_beginning;
 	int bit_pos = Bit_pos;
 	for (int i = thread_zone_beginning; i < thread_zone_end; i++) {
@@ -522,9 +503,7 @@ void populate_unsigned_char_vectors (const int thread_zone_beginning, const int 
 }
 
 int main(int argc, const char* argv[]) {
-	// declare file descriptor
 	int fd;
-	// parse arguments
 	if (argc != 2 && argc != 5 && argc != 6) {
 		cout << "Invalid number of arguments, type: \"" << argv[0] << " -h\" for more information" << endl;
 		return 0;
@@ -565,14 +544,11 @@ int main(int argc, const char* argv[]) {
 		}
 	}
 
-	// declare stat structure
 	struct stat sb;
 	if (fstat(fd, &sb) == -1) {
 		cout << "Failed to get file size\n";
 		return 1;
 	}
-
-	// initialize buffer unsigned char array with memory map of original image
 	unsigned char* buffer = (unsigned char*) mmap(
 		NULL, 
 		sb.st_size, 
@@ -580,40 +556,26 @@ int main(int argc, const char* argv[]) {
 		fd, 
 		0);
 
-	// Remove existing image that was fixed and one that had errors and open new files with correct flags
 	string image_with_errors_path = string(argv[2]).substr(0, string(argv[2]).length()-4).append("_with_errors_BCH_code_long_t2.bmp");
 	string image_fixed_path = string(argv[2]).substr(0, string(argv[2]).length()-4).append("_fixed_BCH_code_long_t2.bmp");
 	remove(image_with_errors_path.c_str());
 	remove(image_fixed_path.c_str());
 	ofstream image_with_errors (image_with_errors_path.c_str(), ios::out | ios::app | ios::binary);
 	ofstream image_fixed (image_fixed_path.c_str(), ios::out | ios::app | ios::binary);
-
-	// get the number of all message polynomials created from read file
 	const ssize_t NUMBER_OF_MESSAGE_POLYNOMIALS = (sb.st_size*8)/k + 1;
-	
-	// Resize vectors with enough space to hold all the bitsets
 	vector_of_bitsets.resize(NUMBER_OF_MESSAGE_POLYNOMIALS);
 	vector_of_modified_bitsets.resize(NUMBER_OF_MESSAGE_POLYNOMIALS);
 	vector_of_recovered_bitsets.resize(NUMBER_OF_MESSAGE_POLYNOMIALS);
 	BCH_objects.resize(NUMBER_OF_MESSAGE_POLYNOMIALS);
 	recovered_charstream.resize(sb.st_size);
 	modified_charstream.resize(sb.st_size);
-	
 	const int NUM_THREADS = thread::hardware_concurrency();
 	cout << "number of detected threads: " << NUM_THREADS << endl;
-
-	// Create a vector to hold the thread objects
 	vector<thread> threads;
-	
-	// divide number of all bitsets in the whole message into equal zones depending on the NUM_THREADS value
 	const int THREAD_ZONE = NUMBER_OF_MESSAGE_POLYNOMIALS / NUM_THREADS;
-
-	// divide number of all bytes in the whole message into equal zones depending on the NUM_THREADS value
 	const int BIG_THREAD_ZONE = sb.st_size / NUM_THREADS;
-
 	cout << "Parsing image file..." << endl;
 	auto start = chrono::high_resolution_clock::now();
-
 	int old_bit_pos = 0;
 	int overhang = 0;
 	for (int thread_id = 0; thread_id < NUM_THREADS; thread_id++) {
@@ -629,23 +591,16 @@ int main(int argc, const char* argv[]) {
 		threads.push_back(thread(populate_vector_of_bitsets, buffer, thread_zone_beginning, 
 									thread_zone_end, vector_zone_beginning, bit_pos));
 	}
-	// Wait for the threads to complete
 	for (auto& thread : threads) {
 		thread.join();
 	}
-
 	auto stop = chrono::high_resolution_clock::now();
 	auto dur = stop - start;
 	auto duration = chrono::duration_cast<chrono::duration<float>>(dur);
-
 	cout << "Parsing image file done and it took: ";
 	cout << to_string(duration.count()).substr(0, to_string(duration.count()).length()-3) << " seconds" << endl;
-
-	// start the main clock
 	start = chrono::high_resolution_clock::now();
-
 	BCH::initialize_BCH();
-
 	threads.clear();
 	if (!verbose){
 		cout<<"Please be patient, starting coding and decoding process..." << endl;
@@ -658,22 +613,16 @@ int main(int argc, const char* argv[]) {
 		}
 		threads.push_back(thread(begin_main_process, thread_id, thread_zone_beginning, thread_zone_end));
 	}
-	// Wait for the threads to complete
 	for (auto& thread : threads) {
 		thread.join();
 	}
-
-	// end main time clock
 	stop = chrono::high_resolution_clock::now();
 	dur = stop - start;
 	auto main_duration = chrono::duration_cast<chrono::duration<float>>(dur);
-
 	cout << "Coding and decoding process done and it took: ";
 	cout << to_string(main_duration.count()).substr(0, to_string(main_duration.count()).length()-3) << " seconds" << endl;
-
 	cout << "Converting modified and recovered data from bitsets to bytes..." << endl;
 	start = chrono::high_resolution_clock::now();
-
 	threads.clear();
 	old_bit_pos = 0;
 	overhang = 0;
@@ -690,74 +639,62 @@ int main(int argc, const char* argv[]) {
 		threads.push_back(thread(populate_unsigned_char_vectors, thread_zone_beginning, thread_zone_end, 
 									vector_zone_beginning, bit_pos));
 	}
-	// Wait for the threads to complete
 	for (auto& thread : threads) {
 		thread.join();
 	}
-	
 	stop = chrono::high_resolution_clock::now();
 	dur = stop - start;
 	duration = chrono::duration_cast<chrono::duration<float>>(dur);
-
 	cout << "Converting modified and recovered data from bitsets to bytes done and it took: ";
 	cout << to_string(duration.count()).substr(0, to_string(duration.count()).length()-3) << " seconds" << endl;
-
-	// write all header bytes to new files without modification
 	for (int i = 0; i < HEADER_BYTES; i++) {
 		image_with_errors << buffer[i];
 		image_fixed << buffer[i];
 	}
-	// put bits with erros and corrected bits into appropriate files
 	for (int i = HEADER_BYTES; i < sb.st_size; i++) {
 		image_with_errors << modified_charstream[i];
 		image_fixed << recovered_charstream[i];
 	}
-
-	// compare bits from start and those after modification and decoding
 	int difference_count = 0;
 	for (int i = 0; i < NUMBER_OF_MESSAGE_POLYNOMIALS; i++) {
 		difference_count += (vector_of_bitsets[i] ^ vector_of_recovered_bitsets[i]).count();
 	}
-	
-	// show information about decoding
 	cout << endl << left << setw(38) << setfill('-') << "+" << setw(20) << "+" << setw(1) << "+" << setfill (' ') << endl;
 	cout << "|" << setw(37) <<" Code used " << setw(20) << "| (" + to_string(n) + "," + to_string(k) + "," + to_string(t*2+1 ) + ")" << "|" << endl;
-	cout << left << setw(38) << setfill('-') << "+" << setw(20) << "+" << setw(1) << "+" << setfill (' ') << endl;
+	cout << setw(38) << setfill('-') << "+" << setw(20) << "+" << setw(1) << "+" << setfill (' ') << endl;
 	cout << "|" << setw(37) <<" Original image used " << setw(20) << "| " + string(argv[2]) << "|" << endl;
-	cout << left << setw(38) << setfill('-') << "+" << setw(20) << "+" << setw(1) << "+" << setfill (' ') << endl;
+	cout << setw(38) << setfill('-') << "+" << setw(20) << "+" << setw(1) << "+" << setfill (' ') << endl;
 	cout << "|" << setw(37) <<" Given error probability " << setw(20) << "| 1 in " + to_string(error_probability) << "|" << endl;
-	cout << left << setw(38) << setfill('-') << "+" << setw(20) << "+" << setw(1) << "+" << setfill (' ') << endl;
+	cout << setw(38) << setfill('-') << "+" << setw(20) << "+" << setw(1) << "+" << setfill (' ') << endl;
 	cout << "|" << setw(37) <<" Real error probability " << setw(20) << "| 1 in " + to_string((NUMBER_OF_MESSAGE_POLYNOMIALS*n)/total_errors) << "|" << endl;
-	cout << left << setw(38) << setfill('-') << "+" << setw(20) << "+" << setw(1) << "+" << setfill (' ') << endl;
+	cout << setw(38) << setfill('-') << "+" << setw(20) << "+" << setw(1) << "+" << setfill (' ') << endl;
 	cout << "|" << setw(37) <<" Number of all bits " << setw(20) << "| " + to_string(NUMBER_OF_MESSAGE_POLYNOMIALS * k) << "|" << endl;
-	cout << left << setw(38) << setfill('-') << "+" << setw(20) << "+" << setw(1) << "+" << setfill (' ') << endl;
+	cout << setw(38) << setfill('-') << "+" << setw(20) << "+" << setw(1) << "+" << setfill (' ') << endl;
 	cout << "|" << setw(37) <<" Number of all bits + redundant bits " << setw(20) << "| " + to_string(NUMBER_OF_MESSAGE_POLYNOMIALS * n) << "|" << endl;
-	cout << left << setw(38) << setfill('-') << "+" << setw(20) << "+" << setw(1) << "+" << setfill (' ') << endl;
+	cout << setw(38) << setfill('-') << "+" << setw(20) << "+" << setw(1) << "+" << setfill (' ') << endl;
 	cout << "|" << setw(37) <<" Number of all generated errors " << setw(20) << "| " + to_string(total_errors) << "|" << endl;
-	cout << left << setw(38) << setfill('-') << "+" << setw(20) << "+" << setw(1) << "+" << setfill (' ') << endl;
+	cout << setw(38) << setfill('-') << "+" << setw(20) << "+" << setw(1) << "+" << setfill (' ') << endl;
 	cout << "|" << setw(37) <<" Number of all message polynomials " << setw(20) << "| " + to_string(NUMBER_OF_MESSAGE_POLYNOMIALS) << "|" << endl;
-	cout << left << setw(38) << setfill('-') << "+" << setw(20) << "+" << setw(1) << "+" << setfill (' ') << endl;
+	cout << setw(38) << setfill('-') << "+" << setw(20) << "+" << setw(1) << "+" << setfill (' ') << endl;
 	cout << "|" << setw(37) <<" Number of successful decodings " << setw(20) << "| " + to_string(success) << "|" << endl;
-	cout << left << setw(38) << setfill('-') << "+" << setw(20) << "+" << setw(1) << "+" << setfill (' ') << endl;
+	cout << setw(38) << setfill('-') << "+" << setw(20) << "+" << setw(1) << "+" << setfill (' ') << endl;
 	cout << "|" << setw(37) <<" Number of decoding errors " << setw(20) << "| " + to_string(failure) << "|" << endl;
-	cout << left << setw(38) << setfill('-') << "+" << setw(20) << "+" << setw(1) << "+" << setfill (' ') << endl;
+	cout << setw(38) << setfill('-') << "+" << setw(20) << "+" << setw(1) << "+" << setfill (' ') << endl;
 	cout << "|" << setw(37) <<" Number of uncaught decoding errors " << setw(20) << "| " + to_string(uncaught_errors) << "|" << endl;
-	cout << left << setw(38) << setfill('-') << "+" << setw(20) << "+" << setw(1) << "+" << setfill (' ') << endl;
+	cout << setw(38) << setfill('-') << "+" << setw(20) << "+" << setw(1) << "+" << setfill (' ') << endl;
 	cout << "|" << setw(37) <<" Number of over t errors in codeword " << setw(20) << "| " + to_string(big_errors) << "|" << endl;
-	cout << left << setw(38) << setfill('-') << "+" << setw(20) << "+" << setw(1) << "+" << setfill (' ') << endl;
+	cout << setw(38) << setfill('-') << "+" << setw(20) << "+" << setw(1) << "+" << setfill (' ') << endl;
 	cout << "|" << setw(37) <<" Final bit difference " << setw(20) << "| " + to_string(difference_count) << "|" << endl;
-	cout << left << setw(38) << setfill('-') << "+" << setw(20) << "+" << setw(1) << "+" << setfill (' ') << endl;
+	cout << setw(38) << setfill('-') << "+" << setw(20) << "+" << setw(1) << "+" << setfill (' ') << endl;
 	cout << "|" << setw(37) <<" Encoding and decoding time " << setw(20) << "| " + to_string(main_duration.count()).substr(0, to_string(main_duration.count()).length()-3) + " seconds " << "|" << endl;
-	cout << left << setw(38) << setfill('-') << "+" << setw(20) << "+" << setw(1) << "+" << setfill (' ') << endl;
+	cout << setw(38) << setfill('-') << "+" << setw(20) << "+" << setw(1) << "+" << setfill (' ') << endl;
 	
 	cout << endl << "Results have been written to BCH_logs.txt file" << endl;
 	cout << endl << "To view made images on linux use \"feh -F -Z --force-aliasing -d " << argv[2] << " " << image_with_errors_path.c_str() << " " << image_fixed_path.c_str() << "\"" << endl << endl;
 
-	// write all the infromation to BCH_logs.txt file
 	ofstream BCH_logs;
 	BCH_logs.open ("BCH_logs.txt", ios::out | ios::app);
-	BCH_logs << endl << left << setw(37) << setfill('-') << "+" << setw(20) << "+" << setw(1) << "+" << setfill (' ') << endl;
-	BCH_logs << setw(37) <<" Code used " << setw(20) << "| (" + to_string(n) + "," + to_string(k) + "," + to_string(t*2+1 ) + ")" << endl;
+	BCH_logs << left << endl << setw(37) <<" Code used " << setw(20) << "| (" + to_string(n) + "," + to_string(k) + "," + to_string(t*2+1 ) + ")" << endl;
 	BCH_logs << setw(37) <<" Original image used " << setw(20) << "| " + string(argv[2]) << endl;
 	BCH_logs << setw(37) <<" Given error probability " << setw(20) << "| 1 in " + to_string(error_probability) << endl;
 	BCH_logs << setw(37) <<" Real error probability " << setw(20) << "| 1 in " + to_string((NUMBER_OF_MESSAGE_POLYNOMIALS*n)/total_errors) << endl;
@@ -771,14 +708,11 @@ int main(int argc, const char* argv[]) {
 	BCH_logs << setw(37) <<" Number of over t errors in codeword " << setw(20) << "| " + to_string(big_errors) << endl;
 	BCH_logs << setw(37) <<" Final bit difference " << setw(20) << "| " + to_string(difference_count) << endl;
 	BCH_logs << setw(37) <<" Encoding and decoding time " << setw(20) << "| " + to_string(main_duration.count()).substr(0, to_string(main_duration.count()).length()-3) + " seconds " << endl;
-	BCH_logs << left << setw(37) << setfill('-') << "+" << setw(20) << "+" << setw(1) << "+" << setfill (' ') << endl;
 
-	// unmap the memory mapped file and close it
 	munmap(buffer, sb.st_size);
 	close(fd);
-    // close opened files:
-    image_with_errors.close();
+	image_with_errors.close();
 	image_fixed.close();
 	BCH_logs.close();
-    return 0;
+	return 0;
 }

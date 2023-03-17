@@ -74,8 +74,7 @@ namespace BCH {
      * Compute the generator polynomial
     */
     void gen_poly();
-    template <size_t N>
-    int MSB(const bitset <N> &Polynomial);
+    int MSB(const bitset <n> &Polynomial);
     void verbose_polynomial(const bitset <n> &Polynomial);
     int multiply_int_polynomials(int Mulitplicand, int Multiplicator);
     template <size_t N>
@@ -93,7 +92,7 @@ namespace BCH {
 
 class BCH_code_short_t3 {
 	public:
-        BCH_code_short_t3 (const bitset<n> data, const int error_probability) : Data(data) {
+        BCH_code_short_t3 (const bitset <n> &data, const int error_probability) : Data(data) {
             Codeword = encode_bch(Data);
             Received_Codeword = introduce_errors(Codeword, error_probability);
             print_original_codeword_and_received_codeword(Codeword, Received_Codeword);

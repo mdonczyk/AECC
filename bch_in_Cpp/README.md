@@ -1,5 +1,6 @@
 <pre>
-Usage:  
+Usage example for bch6351 program:
+
 ./bch6351 [-h] -i <image> -p err_prob [-v]  
 
 Options:  
