@@ -1,9 +1,8 @@
-#include <algorithm>
+#include <atomic>
 #include <bit>
 #include <bitset>
 #include <chrono>
-#include <cmath>
-#include <cstring>
+#include <cstdlib>
 #include <iomanip>
 #include <iostream>
 #include <fstream>
@@ -27,19 +26,25 @@ using namespace std;
 #define t 2
 #define HEADER_BYTES 30
 
-// global counters:
-int success = 0;
-int failure = 0;
-int uncaught_errors = 0;
-int big_errors = 0;
-int total_errors = 0;
+// global atomic counters:
+atomic<int> g_success_count{0};
+atomic<int> g_failure_count{0};
+atomic<int> g_introduced_errors_count{0};
+atomic<int> g_big_errors_count{0};
+atomic<int> g_uncaught_errors_count{0};
+
 
 // verbose logs and sequential threads flag (off by default):
-bool verbose = false;
+bool verbose_flag = false;
 
 // stylistic:
 const string LINE(n/2 - 4, '*');
 const string DASH_LINE(n/2, '-');
+
+enum Status {
+    SUCCESS = 0,
+    FAIL = -1
+};
 
 class BCH_code_long_t2; // forward declaration
 
@@ -52,13 +57,12 @@ namespace BCH {
     bitset <n> generator_polynomial_bitset;
     vector <int> zeros, g, errpos;
     vector <vector <int>> zeros_cosets;
+    string filename;
     int error_probability;
     mutex Mutex;
     // vectors:
-    vector <unique_ptr<BCH_code_long_t2>> BCH_objects;
-    vector <bitset <k>> vector_of_bitsets;
-    vector <bitset <k>> vector_of_modified_bitsets;
-	vector <bitset <k>> vector_of_recovered_bitsets;
+    vector <shared_ptr<BCH_code_long_t2>> BCH_objects;
+    vector <bitset <k>> vector_of_message_polynomials;
     vector <unsigned char> recovered_charstream;
     vector <unsigned char> modified_charstream;
     // functions:
@@ -92,53 +96,39 @@ namespace BCH {
 
 class BCH_code_long_t2 {
 	public:
-        BCH_code_long_t2 (const bitset <n> &data, const int error_probability) : Data(data) {
-            Codeword = encode_bch(Data);
-            Received_Codeword = introduce_errors(Codeword, error_probability);
-            print_original_codeword_and_received_codeword(Codeword, Received_Codeword);
-            Received_Data = bitset <k>(Received_Codeword.to_string().substr(0, k));
-            Decoded_Data = decode_bch(Received_Codeword);
-            // check the decoding status
-            if (Decoded_Data.second) {
-                print_original_message_and_decoded_message(Data, Decoded_Data.first);
-                success++;
-            } else {
-                failure++;
-            }
+        explicit BCH_code_long_t2 (const bitset <n> &data) : Data(data) {
         }
         /**
          * Calculate redundant bits and encode message into a Codeword polynomial
-         * @returns Encoded Data as a Codeword
          */
-        bitset <n> encode_bch(const bitset<n> &Data);
+        void encode_bch();
         /**
          * Introduce errors to a Codeword based on a given probability and save it 
          * as a Received_Codeword
-         * @returns Received_Codeword
         */
-        bitset <n> introduce_errors(const bitset <n> &Codeword, const int error_probability);
+        void introduce_errors();
         /**
-         * Print original Codeword and Received_Codeword in binary form and count number
+         * Print original Codeword and Received_Codeword in binary form and count number of
          * all errors in Received_Codewords and also all errors over t in Received_Codewords
          */
-        void print_original_codeword_and_received_codeword(const bitset <n> &Codeword, const bitset <n> &Received_Codeword);
+        void print_original_codeword_and_received_codeword();
         /**
          * Calculate syndromes and use Berlekamp-Massey algorith to decode the Received_Codeword
          * polynomial
-         * @returns Decoded message and success flag
+         * @returns Decoding Status flag
          */
-        pair<bitset<k>, bool> decode_bch(const bitset <n> &Received_Codeword);
+        Status decode_bch();
         /**
-         * Print original Data and Decoded_Data in binary form and count number
+         * Print original Data and Decoded_Data in binary form and count number of
          * all uncaught decoding errors
          */
-        void print_original_message_and_decoded_message(const bitset <n> &Data, const bitset <k> &Decoded_Data);
+        void print_original_message_and_decoded_message();
         // variables:
         bitset <n> Data;
         bitset <n> Codeword;
         bitset <n> Received_Codeword;
         bitset <k> Received_Data;
-        pair<bitset <k>, bool> Decoded_Data;
+        bitset <k> Decoded_Data;
 
     private:
         vector <int> calculate_syndromes(const bitset<n> &Received_Codeword, bool &errors_in_codeword);

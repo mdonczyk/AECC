@@ -61,11 +61,12 @@ void BCH::gen_poly() {
 	for (const auto& coset : cycle_cosets) {
 		bool root_found = false;
 		for (const auto& element : coset) {
-			for (int root = 1; root < 2*t; root++)
+			for (int root = 1; root <= 2*t; root++) {
 				if (element == root) {
 					root_found = true;
 					break;
 				}
+			}
 			if(root_found) {
 				zeros_cosets.push_back(coset);
 				break;
@@ -95,15 +96,15 @@ void BCH::gen_poly() {
 	cout << "g(x) is " << generator_polynomial_bitset.to_string().substr(n - (n-k+1)) << endl;
 }
 
-bitset<n> BCH_code_long_t3::encode_bch(const bitset<n> &Data) {
-	bitset<n> Codeword;
-	bitset<n> Shifted_Data = Data<<(n-k);
-	bitset<n> rb = divide_bitset_polynomials(Shifted_Data, generator_polynomial_bitset).first;
-	Codeword = Shifted_Data ^ rb;
-	if (verbose) {
+void BCH_code_long_t3::encode_bch() {
+	bitset<n> codeword;
+	bitset<n> shifted_data = this->Data<<(n-k);
+	bitset<n> rb = divide_bitset_polynomials(shifted_data, generator_polynomial_bitset).first;
+	codeword = shifted_data ^ rb;
+	if (verbose_flag) {
 		cout << endl;
 	}
-	return Codeword;
+	this->Codeword = codeword;
 }
 
 vector <int> BCH_code_long_t3::calculate_syndromes(const bitset<n> &Received_Codeword, bool &errors_in_codeword) {
@@ -116,11 +117,12 @@ vector <int> BCH_code_long_t3::calculate_syndromes(const bitset<n> &Received_Cod
 			}
 		}
 		syndromes[i] = index_of[syndromes[i]];
+		// when there are no errors all syndromes should be -1
 		if (syndromes[i] != -1) {
 			errors_in_codeword = true;
 		}
 	}
-	if (verbose) {
+	if (verbose_flag) {
 		cout << "syndromes= ( ";
 		for (int i = 1; i <= 2*t; i++) {
 			cout << syndromes[i] << " ";
@@ -130,7 +132,7 @@ vector <int> BCH_code_long_t3::calculate_syndromes(const bitset<n> &Received_Cod
 	return syndromes;
 }
 
-pair<bitset<k>, bool> BCH_code_long_t3::decode_bch(const bitset <n> &Received_Codeword) {
+Status BCH_code_long_t3::decode_bch() {
 	/*
 	 Simon Rockliff's implementation of Berlekamp's algorithm.
 	 Assume we have received bits in Received_Codeword[i], i=0..(n-1).
@@ -154,7 +156,7 @@ pair<bitset<k>, bool> BCH_code_long_t3::decode_bch(const bitset <n> &Received_Co
 	*/
 
 	bool errors_in_codeword = false;
-	vector <int> syndromes = calculate_syndromes(Received_Codeword, errors_in_codeword);
+	vector <int> syndromes = calculate_syndromes(this->Received_Codeword, errors_in_codeword);
 	bitset <n> Decoded_Codeword = Received_Codeword;
 	if (errors_in_codeword) {
 		/*
@@ -245,18 +247,18 @@ pair<bitset<k>, bool> BCH_code_long_t3::decode_bch(const bitset <n> &Received_Co
 		u++;
 		if (l[u] <= t) {// Can correct errors
 			// put elp into index form
-			if (verbose) {
+			if (verbose_flag) {
 				cout << "Sigma(x) = ";
 			}
 			for (int i = 0; i <= l[u]; i++) {
 				elp[u][i] = index_of[elp[u][i]];
-				if (verbose) {
+				if (verbose_flag) {
 					cout << elp[u][i] << " ";
 				}
 			}
 			// Find roots of the error location polynomial:
 			// Chien search
-			if (verbose) {
+			if (verbose_flag) {
 				cout << endl << "Roots: ";
 			}
 			for (int i = 1; i <= GFB; i++) {
@@ -268,12 +270,12 @@ pair<bitset<k>, bool> BCH_code_long_t3::decode_bch(const bitset <n> &Received_Co
 				// Store error location number indices
 				if (!q) {
 					error_locations.push_back(n - i + (GFB-n));
-					if (verbose) {
+					if (verbose_flag) {
 						cout << error_locations.back() << " ";
 					}
 				}
 			}
-			if (verbose) {
+			if (verbose_flag) {
 				cout << endl;
 			}
 			if (error_locations.size() == (unsigned)l[u]) {
@@ -281,36 +283,36 @@ pair<bitset<k>, bool> BCH_code_long_t3::decode_bch(const bitset <n> &Received_Co
 				for (auto const &error_location : error_locations) {
 					auto err_loc = (n-1-error_location + n) % n;
 					if (err_loc < 0 || err_loc >= n) {
-						if (verbose) {
+						if (verbose_flag) {
 							cout<<endl<<"Incomplete decoding: errors detected (err_loc out of bound: err_loc = " << err_loc << ")"<<endl;
 						}
-						bitset<k> Decoded_Message(Decoded_Codeword.to_string().substr(0, k));
-						return {Decoded_Message, false};
+						this->Decoded_Data = (bitset<k>)Decoded_Codeword.to_string().substr(0, k);
+						return FAIL;
 					} else {
 						Decoded_Codeword.flip(err_loc);
 					}
 				}
 			} else {// elp has degree > t hence cannot solve
-				if (verbose) {
+				if (verbose_flag) {
 					cout<<endl<<"Incomplete decoding: errors detected (elp has degree > t) "<<endl;
 				}
-				bitset<k> Decoded_Message(Decoded_Codeword.to_string().substr(0, k));
-				return {Decoded_Message, false};
+				this->Decoded_Data = (bitset<k>)Decoded_Codeword.to_string().substr(0, k);
+				return FAIL;
 			}
 		} else {
-			if (verbose) {
+			if (verbose_flag) {
 				cout<<endl<<"Incomplete decoding: errors detected (l[u] > t: l[u] = " << l[u] << ")"<<endl;
 			}
-			bitset<k> Decoded_Message(Decoded_Codeword.to_string().substr(0, k));
-			return {Decoded_Message, false};
+			this->Decoded_Data = (bitset<k>)Decoded_Codeword.to_string().substr(0, k);
+			return FAIL;
 		}
 	} else {
-		if (verbose) {
+		if (verbose_flag) {
 			cout << "No errors found" << endl;
 		}
 	}
-	bitset<k> Decoded_Message(Decoded_Codeword.to_string().substr(0, k));
-	return {Decoded_Message, true};
+	this->Decoded_Data = (bitset<k>)Decoded_Codeword.to_string().substr(0, k);
+	return SUCCESS;
 }
 
 void BCH::verbose_polynomial(const bitset <n> &Polynomial) {
@@ -344,7 +346,8 @@ void BCH::reverse_bitset(bitset <N> &Polynomial, int Shift) {
 	Polynomial >>= Shift;
 }
 
-pair<bitset <n>, bitset <n>> BCH_code_long_t3::divide_bitset_polynomials(const bitset <n> &Dividend, const bitset <n> &Divisor) {
+pair<bitset <n>, bitset <n>> BCH_code_long_t3::divide_bitset_polynomials(
+			const bitset <n> &Dividend, const bitset <n> &Divisor) {
 	bitset <n> quotient, remainder = Dividend;
  	while (MSB(remainder) >= MSB(Divisor)) {
 		int shift = MSB(remainder) - MSB(Divisor);
@@ -366,44 +369,45 @@ int BCH::multiply_int_polynomials(int Mulitplicand, int Multiplicator) {
 	return product;
 }
 
-void BCH_code_long_t3::print_original_codeword_and_received_codeword(const bitset <n> &Codeword, const bitset <n> &Received_Codeword) {
-	if (verbose) {
-		cout << "c(x) = "<< Codeword << endl;
-		cout << "r(x) = "<< Received_Codeword << endl;
+void BCH_code_long_t3::print_original_codeword_and_received_codeword() {
+	if (verbose_flag) {
+		cout << "c(x) = "<< this->Codeword << endl;
+		cout << "r(x) = "<< this->Received_Codeword << endl;
 	}
 	bitset <n> bit_difference = Codeword ^ Received_Codeword;
-	if (bit_difference.count()) {
-		if (verbose) {
+	if (bit_difference.count() != 0) {
+		if (verbose_flag) {
 			cout<<"       "<<(bit_difference.to_string(' ','^'))<<endl;
 			if (bit_difference.count() == 1) {
-				cout << "Position of " << bit_difference.count() << " error in the received codeword at ^." << endl;
+				cout << "Position of " << bit_difference.count() <<
+				 " error in the received codeword at ^." << endl;
 			} else {
-				cout << "Positions of " << bit_difference.count() << " errors in the received codeword at ^." << endl;
+				cout << "Positions of " << bit_difference.count() <<
+				 " errors in the received codeword at ^." << endl;
 			}
 		}
-		total_errors += bit_difference.count();
 		if (bit_difference.count() > t) {
-			big_errors++;
+			g_big_errors_count++;
 		}
 	} else {
-		if (verbose) {
+		if (verbose_flag) {
 			cout << "No errors in the received codeword." << endl;
 		}
 	}
 }
 
-void BCH_code_long_t3::print_original_message_and_decoded_message(const bitset <n> &Data, const bitset <k> &Decoded_Data) {
-	if (verbose) {
+void BCH_code_long_t3::print_original_message_and_decoded_message() {
+	if (verbose_flag) {
 		cout <<  DASH_LINE << "Results" << DASH_LINE << endl;
 	}
-	bitset<k> Original_Data(Data.to_string().substr(n-k, n));
-	if (verbose) {
+	bitset<k> Original_Data(this->Data.to_string().substr(n-k, n));
+	if (verbose_flag) {
 		cout << "Original Data  = " << Original_Data << endl;
-		cout << "Recovered Data = " << Decoded_Data<< endl;
+		cout << "Recovered Data = " << this->Decoded_Data<< endl;
 	}
 	bitset <k> bit_difference = Original_Data ^ Decoded_Data;
 	if (bit_difference.count()) {
-		if (verbose) {
+		if (verbose_flag) {
 			cout << "                 " << (bit_difference.to_string(' ','^')) << endl;
 			if (bit_difference.count() == 1) {
 				cout << "Position of " << bit_difference.count() << " message decoding error at ^." << endl;
@@ -411,59 +415,78 @@ void BCH_code_long_t3::print_original_message_and_decoded_message(const bitset <
 				cout << "Positions of " << bit_difference.count() << " message decoding errors at ^." << endl;
 			}
 		}
-		uncaught_errors++;
+		g_uncaught_errors_count++;
 	} else {
-		if (verbose) {
-			cout <<"Succesful decoding." << endl;
+		if (verbose_flag) {
+			cout <<"Successful decoding." << endl;
 		}
 	}
 }
 
-bitset <n> BCH_code_long_t3::introduce_errors(const bitset <n> &Codeword, const int error_probability) {
-	bitset <n> Received_Codeword = Codeword;
+void BCH_code_long_t3::introduce_errors() {
+	bitset <n> received_codeword = this->Codeword;
 	random_device rd;
 	mt19937 gen (rd());
 	uniform_int_distribution<> d (0, error_probability);
 	for (int i = n - 1; i >= 0; i--) {
 		int randnum = d(gen);
 		if (randnum == 0) {
-			Received_Codeword.flip(i);
+			g_introduced_errors_count ++;
+			received_codeword.flip(i);
 		}
 	}
-	return Received_Codeword;
+	this->Received_Codeword = received_codeword;
 }
 
 void print_help_message(const char *file_name) {
 	cout << "Usage:\n"
 		<< file_name << " [-h] -i <image> -p err_prob [-v]\n\n"
 		<< "Options:\n"
-		<< "  -i <file_name>, --image <file_name>	Choose one image from images folder, example: images/image2.bmp.\n"
-		<< "  -p err_prob, --probability err_prob	Give probability between (1 and 10000000) that an error will occur in \n"
-		<< "					  the codeword during a simulated transmission through a noisy medium, example: 1000.\n"
+		<< "  -i <file_name>	Choose one image from images folder, example: images/image2.bmp.\n"
+		<< "  -p err_prob		Give probability between (10 and 10000000) that a 1 in err_prob error will occur in \n"
+		<< "			   the codeword during a simulated transmission through a noisy medium, example: 1000.\n"
 		<< "Optional arguments:\n"
-		<< "  -h, --help	Show this help message.\n"
-		<< "  -v, --verbose	Enable verbose encoding and decoding logs which will print out the whole process to the \n"
-		<< "		  terminal, is disabled by default. WARNING! This option causes the threads to run sequenitally instead \n"
-		<< " 		  of in parallel which combined with printing operations to console causes a severe performance degradation.\n";
+		<< "  -h	Show this help message.\n"
+		<< "  -v	Enable verbose_flag encoding and decoding logs which will print out the whole process to the \n"
+		<< "	   terminal, is disabled by default. WARNING! This option causes the threads to run sequenitally instead \n"
+		<< " 	   of in parallel which combined with printing operations to console causes a severe performance degradation.\n";
 }
 
 void begin_main_process(const int thread_id, const int thread_zone_beginning, const int thread_zone_end) {
-	if (verbose) { Mutex.lock(); }
+	if (verbose_flag) { Mutex.lock(); }
 	for (int i = thread_zone_beginning; i < thread_zone_end; i++) {
-		if (verbose) {
+		if (verbose_flag) {
 			cout << LINE << " Worker " << thread_id << " START " << LINE;
 		}
-		BCH_objects[i] = make_unique<BCH_code_long_t3>(bitset<n>(vector_of_bitsets[i].to_string()), error_probability);
-		vector_of_modified_bitsets[i] = BCH_objects[i] -> Received_Data;
-		vector_of_recovered_bitsets[i] = BCH_objects[i] -> Decoded_Data.first;
-		if (verbose) {
+		
+		BCH_objects[i] = make_shared<BCH_code_long_t3>(bitset<n>(vector_of_message_polynomials[i].to_string()));
+
+		BCH_objects[i]->encode_bch();
+
+		BCH_objects[i]->introduce_errors();
+
+		BCH_objects[i]->print_original_codeword_and_received_codeword();
+
+		BCH_objects[i]->Received_Data = bitset <k>(BCH_objects[i]->Received_Codeword.to_string().substr(0, k));
+
+		bool status = BCH_objects[i]->decode_bch();
+
+		// check the decoding status
+		if (status == SUCCESS) {
+			BCH_objects[i]->print_original_message_and_decoded_message();
+			g_success_count++;
+		} else {
+			g_failure_count++;
+		}
+
+		if (verbose_flag) {
 			cout << LINE << " Worker " << thread_id << " STOP *" << LINE << endl << endl;
 		}
 	}
-	if (verbose) { Mutex.unlock(); }
+	if (verbose_flag) { Mutex.unlock(); }
 }
 
-void populate_vector_of_bitsets (const unsigned char* str, const int thread_zone_beginning, const int thread_zone_end, 
+void populate_vector_of_message_polynomials (const unsigned char* str, const int thread_zone_beginning, const int thread_zone_end, 
 									const int vector_zone_beginning, const int Bit_pos) {
 	bitset<k> temp_bitset;
 	int it = vector_zone_beginning;
@@ -473,7 +496,7 @@ void populate_vector_of_bitsets (const unsigned char* str, const int thread_zone
 			temp_bitset[bit_pos] = str[i] & (1 << j);
 			bit_pos++;
 			if (bit_pos == k) {
-				vector_of_bitsets[it] ^= temp_bitset;
+				vector_of_message_polynomials[it] ^= temp_bitset;
 				it++;
 				temp_bitset.reset();
 				bit_pos = 0;
@@ -481,7 +504,7 @@ void populate_vector_of_bitsets (const unsigned char* str, const int thread_zone
 		}
 	}
 	if (bit_pos != 0) {
-		vector_of_bitsets[it] ^= temp_bitset;
+		vector_of_message_polynomials[it] ^= temp_bitset;
 	}
 }
 
@@ -491,64 +514,76 @@ void populate_unsigned_char_vectors (const int thread_zone_beginning, const int 
 	int bit_pos = Bit_pos;
 	for (int i = thread_zone_beginning; i < thread_zone_end; i++) {
 		for (int j = 0; j < 8; ++j) {
-			recovered_charstream[i] ^= vector_of_recovered_bitsets[it][bit_pos] << j;
-			modified_charstream[i] ^= vector_of_modified_bitsets[it][bit_pos] << j;
+			recovered_charstream[i] ^= BCH_objects[it]->Decoded_Data[bit_pos] << j;
+			modified_charstream[i] ^= BCH_objects[it]->Received_Data[bit_pos] << j;
 			bit_pos++;
 			if (bit_pos == k) {
-				it++;	
+				it++;
 				bit_pos = 0;
 			}
 		}
 	}
 }
 
-int main(int argc, const char* argv[]) {
-	int fd;
+int parse_arguments (const int argc, char* argv[]) {
+
+	int fd = FAIL;
+	int c;
+
 	if (argc != 2 && argc != 5 && argc != 6) {
-		cout << "Invalid number of arguments, type: \"" << argv[0] << " -h\" for more information" << endl;
-		return 0;
+		cout << "Invalid number of arguments"<< endl;
+		return FAIL;
 	}
 
-	if (strcasecmp(argv[1], "-h") == 0 || strcasecmp(argv[1], "--help") == 0) {
-		print_help_message(argv[0]);
-		return 0;
-	} else if (strcasecmp(argv[1], "-i") == 0 || strcasecmp(argv[1], "--image") == 0) {
-		fd = open(argv[2], O_RDONLY);
-		if (fd == -1) {
-			cout << "Incorrect Image file name, type: \"" << argv[0] << " -h\" for more information" << endl;
-			return 0;
-		}
-	} else {
-		cout << "Invalid argument, type: \"" << argv[0] << " -h\" for more information" << endl;
-		return 0;
-	}
-
-	if (strcasecmp(argv[3], "-p") == 0 || strcasecmp(argv[3], "--probability") == 0) {
-		error_probability = stoi(argv[4]);
-		if (error_probability < 1 || error_probability > 10000000) {
-			cout << "Error probability should be between (1 and 10000000), type: \""
-			<< argv[0] << " -h\" for more information" << endl;
-			return 0;
-		}
-	} else {
-		cout << "Invalid argument, type: \"" << argv[0] << " -h\" for more information" << endl;
-		return 0;
-	}
-
-	if (argc == 6) {
-		if (strcasecmp(argv[5], "-v") == 0 || strcasecmp(argv[5], "--verbose") == 0) {
-			verbose = true;
-		} else {
-			cout << "Invalid argument, type: \"" << argv[0] << " -h\" for more information" << endl;
-			return 0;
+	while ((c = getopt (argc, argv, "i:p:vh")) != FAIL) {
+		switch (c) {
+			case 'h':
+				print_help_message(argv[0]);
+				exit(0);
+			case 'i':
+				filename = optarg;
+				fd = open(optarg, O_RDONLY);
+				if (fd == FAIL) {
+					cout << "Incorrect Image file name" << endl;
+					return FAIL;
+				}
+				break;
+			case 'p':
+				error_probability = atoi(optarg);
+				if (error_probability < 10 || error_probability > 10000000) {
+					cout << "Error probability should be between (10 and 10000000)" << endl;
+					return FAIL;
+				}
+				break;
+			case 'v':
+				verbose_flag = true;
+				break;
+			case '?':
+					cout << optopt << endl;
+				return FAIL;
+			default:
+				abort();
 		}
 	}
+	
+	return fd;
+}
 
+int main(int argc, char* argv[]) {
+	int fd {parse_arguments(argc, argv)};
+	
+	if (fd == FAIL) {
+		cout << "Argument parsing failed, type: \"" << argv[0] << " -h\" for more information" << endl;
+		return 1;
+	}
+	
 	struct stat sb;
-	if (fstat(fd, &sb) == -1) {
+
+	if (fstat(fd, &sb) == FAIL) {
 		cout << "Failed to get file size\n";
 		return 1;
 	}
+
 	unsigned char* buffer = (unsigned char*) mmap(
 		NULL, 
 		sb.st_size, 
@@ -556,163 +591,224 @@ int main(int argc, const char* argv[]) {
 		fd, 
 		0);
 
-	string image_with_errors_path = string(argv[2]).substr(0, string(argv[2]).length()-4).append("_with_errors_BCH_code_long_t3.bmp");
-	string image_fixed_path = string(argv[2]).substr(0, string(argv[2]).length()-4).append("_fixed_BCH_code_long_t3.bmp");
+	string image_with_errors_path = filename.substr(0, filename.length()-4).append("_with_errors_BCH_code_long_t3.bmp");
+	string image_fixed_path = filename.substr(0, filename.length()-4).append("_fixed_BCH_code_long_t3.bmp");
+
 	remove(image_with_errors_path.c_str());
 	remove(image_fixed_path.c_str());
+
 	ofstream image_with_errors (image_with_errors_path.c_str(), ios::out | ios::app | ios::binary);
 	ofstream image_fixed (image_fixed_path.c_str(), ios::out | ios::app | ios::binary);
+
 	const ssize_t NUMBER_OF_MESSAGE_POLYNOMIALS = (sb.st_size*8)/k + 1;
-	vector_of_bitsets.resize(NUMBER_OF_MESSAGE_POLYNOMIALS);
-	vector_of_modified_bitsets.resize(NUMBER_OF_MESSAGE_POLYNOMIALS);
-	vector_of_recovered_bitsets.resize(NUMBER_OF_MESSAGE_POLYNOMIALS);
+
+	vector_of_message_polynomials.resize(NUMBER_OF_MESSAGE_POLYNOMIALS);
 	BCH_objects.resize(NUMBER_OF_MESSAGE_POLYNOMIALS);
 	recovered_charstream.resize(sb.st_size);
 	modified_charstream.resize(sb.st_size);
+
 	const int NUM_THREADS = thread::hardware_concurrency();
 	cout << "number of detected threads: " << NUM_THREADS << endl;
+
 	vector<thread> threads;
+
 	const int THREAD_ZONE = NUMBER_OF_MESSAGE_POLYNOMIALS / NUM_THREADS;
 	const int BIG_THREAD_ZONE = sb.st_size / NUM_THREADS;
+
 	cout << "Parsing image file..." << endl;
 	auto start = chrono::high_resolution_clock::now();
+
 	int old_bit_pos = 0;
 	int overhang = 0;
+
 	for (int thread_id = 0; thread_id < NUM_THREADS; thread_id++) {
 		int thread_zone_beginning = BIG_THREAD_ZONE*thread_id;
 		int thread_zone_end = BIG_THREAD_ZONE*(thread_id + 1);
+
 		if (thread_id == NUM_THREADS-1) {
 			thread_zone_end = sb.st_size;
 		}
+
 		int bit_pos = (thread_zone_beginning*8) % k;
+
 		if (bit_pos < old_bit_pos) { overhang++; }
+
 		int vector_zone_beginning = THREAD_ZONE*thread_id + overhang;
+
 		old_bit_pos = bit_pos;
-		threads.push_back(thread(populate_vector_of_bitsets, buffer, thread_zone_beginning, 
+
+		threads.push_back(thread(populate_vector_of_message_polynomials, buffer, thread_zone_beginning, 
 									thread_zone_end, vector_zone_beginning, bit_pos));
 	}
+
 	for (auto& thread : threads) {
 		thread.join();
 	}
+
 	auto stop = chrono::high_resolution_clock::now();
 	auto dur = stop - start;
 	auto duration = chrono::duration_cast<chrono::duration<float>>(dur);
+
 	cout << "Parsing image file done and it took: ";
 	cout << to_string(duration.count()).substr(0, to_string(duration.count()).length()-3) << " seconds" << endl;
+
 	start = chrono::high_resolution_clock::now();
+
 	BCH::initialize_BCH();
+
 	threads.clear();
-	if (!verbose){
+
+	if (!verbose_flag){
 		cout<<"Please be patient, starting coding and decoding process..." << endl;
 	}
+
 	for (int thread_id = 0; thread_id < NUM_THREADS; thread_id++) {
 		int thread_zone_beginning = THREAD_ZONE*thread_id;
 		int thread_zone_end = THREAD_ZONE*(thread_id + 1);
+
 		if (thread_id == NUM_THREADS-1) {
 			thread_zone_end = NUMBER_OF_MESSAGE_POLYNOMIALS;
 		}
+
 		threads.push_back(thread(begin_main_process, thread_id, thread_zone_beginning, thread_zone_end));
+
 	}
+
 	for (auto& thread : threads) {
 		thread.join();
 	}
+
 	stop = chrono::high_resolution_clock::now();
 	dur = stop - start;
 	auto main_duration = chrono::duration_cast<chrono::duration<float>>(dur);
+
 	cout << "Coding and decoding process done and it took: ";
 	cout << to_string(main_duration.count()).substr(0, to_string(main_duration.count()).length()-3) << " seconds" << endl;
+
 	cout << "Converting modified and recovered data from bitsets to bytes..." << endl;
+
 	start = chrono::high_resolution_clock::now();
+
 	threads.clear();
+
 	old_bit_pos = 0;
 	overhang = 0;
+
 	for (int thread_id = 0; thread_id < NUM_THREADS; thread_id++) {
+
 		int thread_zone_beginning = BIG_THREAD_ZONE*thread_id;
 		int thread_zone_end = BIG_THREAD_ZONE*(thread_id + 1);
+
 		if (thread_id == NUM_THREADS-1) {
 			thread_zone_end = sb.st_size;
 		}
+
 		int bit_pos = (thread_zone_beginning*8) % k;
+
 		if (bit_pos < old_bit_pos) { overhang++; }
+
 		int vector_zone_beginning = THREAD_ZONE*thread_id + overhang;
+
 		old_bit_pos = bit_pos;
+
 		threads.push_back(thread(populate_unsigned_char_vectors, thread_zone_beginning, thread_zone_end, 
 									vector_zone_beginning, bit_pos));
 	}
+
 	for (auto& thread : threads) {
 		thread.join();
 	}
+
 	stop = chrono::high_resolution_clock::now();
 	dur = stop - start;
 	duration = chrono::duration_cast<chrono::duration<float>>(dur);
+
 	cout << "Converting modified and recovered data from bitsets to bytes done and it took: ";
 	cout << to_string(duration.count()).substr(0, to_string(duration.count()).length()-3) << " seconds" << endl;
+
 	for (int i = 0; i < HEADER_BYTES; i++) {
 		image_with_errors << buffer[i];
 		image_fixed << buffer[i];
 	}
+
 	for (int i = HEADER_BYTES; i < sb.st_size; i++) {
 		image_with_errors << modified_charstream[i];
 		image_fixed << recovered_charstream[i];
 	}
+
 	int difference_count = 0;
 	for (int i = 0; i < NUMBER_OF_MESSAGE_POLYNOMIALS; i++) {
-		difference_count += (vector_of_bitsets[i] ^ vector_of_recovered_bitsets[i]).count();
+		difference_count += (vector_of_message_polynomials[i] ^ BCH_objects[i]->Decoded_Data).count();
 	}
-	cout << endl << left << setw(38) << setfill('-') << "+" << setw(20) << "+" << setw(1) << "+" << setfill (' ') << endl;
-	cout << "|" << setw(37) <<" Code used " << setw(20) << "| (" + to_string(n) + "," + to_string(k) + "," + to_string(t*2+1 ) + ")" << "|" << endl;
-	cout << setw(38) << setfill('-') << "+" << setw(20) << "+" << setw(1) << "+" << setfill (' ') << endl;
-	cout << "|" << setw(37) <<" Original image used " << setw(20) << "| " + string(argv[2]) << "|" << endl;
-	cout << setw(38) << setfill('-') << "+" << setw(20) << "+" << setw(1) << "+" << setfill (' ') << endl;
-	cout << "|" << setw(37) <<" Given error probability " << setw(20) << "| 1 in " + to_string(error_probability) << "|" << endl;
-	cout << setw(38) << setfill('-') << "+" << setw(20) << "+" << setw(1) << "+" << setfill (' ') << endl;
-	cout << "|" << setw(37) <<" Real error probability " << setw(20) << "| 1 in " + to_string((NUMBER_OF_MESSAGE_POLYNOMIALS*n)/total_errors) << "|" << endl;
-	cout << setw(38) << setfill('-') << "+" << setw(20) << "+" << setw(1) << "+" << setfill (' ') << endl;
-	cout << "|" << setw(37) <<" Number of all bits " << setw(20) << "| " + to_string(NUMBER_OF_MESSAGE_POLYNOMIALS * k) << "|" << endl;
-	cout << setw(38) << setfill('-') << "+" << setw(20) << "+" << setw(1) << "+" << setfill (' ') << endl;
-	cout << "|" << setw(37) <<" Number of all bits + redundant bits " << setw(20) << "| " + to_string(NUMBER_OF_MESSAGE_POLYNOMIALS * n) << "|" << endl;
-	cout << setw(38) << setfill('-') << "+" << setw(20) << "+" << setw(1) << "+" << setfill (' ') << endl;
-	cout << "|" << setw(37) <<" Number of all generated errors " << setw(20) << "| " + to_string(total_errors) << "|" << endl;
-	cout << setw(38) << setfill('-') << "+" << setw(20) << "+" << setw(1) << "+" << setfill (' ') << endl;
-	cout << "|" << setw(37) <<" Number of all message polynomials " << setw(20) << "| " + to_string(NUMBER_OF_MESSAGE_POLYNOMIALS) << "|" << endl;
-	cout << setw(38) << setfill('-') << "+" << setw(20) << "+" << setw(1) << "+" << setfill (' ') << endl;
-	cout << "|" << setw(37) <<" Number of successful decodings " << setw(20) << "| " + to_string(success) << "|" << endl;
-	cout << setw(38) << setfill('-') << "+" << setw(20) << "+" << setw(1) << "+" << setfill (' ') << endl;
-	cout << "|" << setw(37) <<" Number of decoding errors " << setw(20) << "| " + to_string(failure) << "|" << endl;
-	cout << setw(38) << setfill('-') << "+" << setw(20) << "+" << setw(1) << "+" << setfill (' ') << endl;
-	cout << "|" << setw(37) <<" Number of uncaught decoding errors " << setw(20) << "| " + to_string(uncaught_errors) << "|" << endl;
-	cout << setw(38) << setfill('-') << "+" << setw(20) << "+" << setw(1) << "+" << setfill (' ') << endl;
-	cout << "|" << setw(37) <<" Number of over t errors in codeword " << setw(20) << "| " + to_string(big_errors) << "|" << endl;
-	cout << setw(38) << setfill('-') << "+" << setw(20) << "+" << setw(1) << "+" << setfill (' ') << endl;
-	cout << "|" << setw(37) <<" Final bit difference " << setw(20) << "| " + to_string(difference_count) << "|" << endl;
-	cout << setw(38) << setfill('-') << "+" << setw(20) << "+" << setw(1) << "+" << setfill (' ') << endl;
-	cout << "|" << setw(37) <<" Encoding and decoding time " << setw(20) << "| " + to_string(main_duration.count()).substr(0, to_string(main_duration.count()).length()-3) + " seconds " << "|" << endl;
-	cout << setw(38) << setfill('-') << "+" << setw(20) << "+" << setw(1) << "+" << setfill (' ') << endl;
-	
+
+	// int total_fresh_diff = accumulate (BCH_objects.begin(), BCH_objects.end(), 0, 
+	//  	[](int sum, shared_ptr<BCH_code_long_t3> const& obj) 
+	// 	{ return sum + (obj->Codeword ^ obj->Received_Codeword).count(); });
+	// if (total_fresh_diff != g_introduced_errors_count) { cout<< "Some of introduced errors cancelled each other out" << endl; }
+
+	auto table_row_separator = []()->void { cout << setw(42) << setfill('-') << "+" << setw(20) << "+" << setw(1) << "+" << setfill (' ') << endl; };
+	auto table_items = [](const string &lhs, const string &rhs)->void { cout << "| " << setw(40) << lhs << setw(20) << "| " + rhs << "|" << endl; };
+
+	cout << endl << left;
+	table_row_separator();
+	table_items("Code used ", "(" + to_string(n) + "," + to_string(k) + "," + to_string(t*2+1 ) + ")");
+	table_row_separator();
+	table_items("Original image used ", filename);
+	table_row_separator();
+	table_items("Given error probability ", to_string(1/(float)error_probability));
+	table_row_separator();
+	table_items("Real error probability ", to_string(1/(float)((NUMBER_OF_MESSAGE_POLYNOMIALS*n)/g_introduced_errors_count)));
+	table_row_separator();
+	table_items("Number of all data bits ", to_string(NUMBER_OF_MESSAGE_POLYNOMIALS * k));
+	table_row_separator();
+	table_items("Number of all data + redundant bits ", to_string(NUMBER_OF_MESSAGE_POLYNOMIALS * n));
+	table_row_separator();
+	table_items("Number of all introduced errors ", to_string(g_introduced_errors_count));
+	table_row_separator();
+	table_items("Number of all message polynomials ", to_string(NUMBER_OF_MESSAGE_POLYNOMIALS));
+	table_row_separator();
+	table_items("Number of successful decodings", to_string(g_success_count));
+	table_row_separator();
+	table_items("Number of decoding errors ", to_string(g_failure_count));
+	table_row_separator();
+	table_items("Number of uncaught decoding errors ", to_string(g_uncaught_errors_count));
+	table_row_separator();
+	table_items("Number of over t errors in codewords ", to_string(g_big_errors_count));
+	table_row_separator();
+	table_items("Final data bits difference ", to_string(difference_count));
+	table_row_separator();
+	table_items("Encoding and decoding time ", to_string(main_duration.count()).substr(0, to_string(main_duration.count()).length()-3) + " seconds ");
+	table_row_separator();
+
 	cout << endl << "Results have been written to BCH_logs.txt file" << endl;
-	cout << endl << "To view made images on linux use \"feh -F -Z --force-aliasing -d " << argv[2] << " " << image_with_errors_path.c_str() << " " << image_fixed_path.c_str() << "\"" << endl << endl;
+	cout << endl << "To view made images on linux use \"feh -F -Z --force-aliasing -d " << filename << " " << image_with_errors_path.c_str() << " " << image_fixed_path.c_str() << "\"" << endl << endl;
 
 	ofstream BCH_logs;
 	BCH_logs.open ("BCH_logs.txt", ios::out | ios::app);
-	BCH_logs << left << endl << setw(37) <<" Code used " << setw(20) << "| (" + to_string(n) + "," + to_string(k) + "," + to_string(t*2+1 ) + ")" << endl;
-	BCH_logs << setw(37) <<" Original image used " << setw(20) << "| " + string(argv[2]) << endl;
-	BCH_logs << setw(37) <<" Given error probability " << setw(20) << "| 1 in " + to_string(error_probability) << endl;
-	BCH_logs << setw(37) <<" Real error probability " << setw(20) << "| 1 in " + to_string((NUMBER_OF_MESSAGE_POLYNOMIALS*n)/total_errors) << endl;
-	BCH_logs << setw(37) <<" Number of all bits " << setw(20) << "| " + to_string(NUMBER_OF_MESSAGE_POLYNOMIALS * k) << endl;
-	BCH_logs << setw(37) <<" Number of all bits + redundant bits " << setw(20) << "| " + to_string(NUMBER_OF_MESSAGE_POLYNOMIALS * n) << endl;
-	BCH_logs << setw(37) <<" Number of all generated errors " << setw(20) << "| " + to_string(total_errors) << endl;
-	BCH_logs << setw(37) <<" Number of all message polynomials " << setw(20) << "| " + to_string(NUMBER_OF_MESSAGE_POLYNOMIALS) << endl;
-	BCH_logs << setw(37) <<" Number of successful decodings " << setw(20) << "| " + to_string(success) << endl;
-	BCH_logs << setw(37) <<" Number of decoding errors " << setw(20) << "| " + to_string(failure) << endl;
-	BCH_logs << setw(37) <<" Number of uncaught decoding errors " << setw(20) << "| " + to_string(uncaught_errors) << endl;
-	BCH_logs << setw(37) <<" Number of over t errors in codeword " << setw(20) << "| " + to_string(big_errors) << endl;
-	BCH_logs << setw(37) <<" Final bit difference " << setw(20) << "| " + to_string(difference_count) << endl;
-	BCH_logs << setw(37) <<" Encoding and decoding time " << setw(20) << "| " + to_string(main_duration.count()).substr(0, to_string(main_duration.count()).length()-3) + " seconds " << endl;
+	auto BCH_logs_items = [&](const string &lhs, const string &rhs)->void { BCH_logs << setw(37) << lhs << setw(20) << "| " + rhs << endl; };
+
+	BCH_logs << endl << left;
+	BCH_logs_items("Code used ", "(" + to_string(n) + "," + to_string(k) + "," + to_string(t*2+1 ) + ")");
+	BCH_logs_items("Original image used ", filename);
+	BCH_logs_items("Given error probability ", to_string(1/(float)error_probability));
+	BCH_logs_items("Real error probability ", to_string(1/(float)((NUMBER_OF_MESSAGE_POLYNOMIALS*n)/g_introduced_errors_count)));
+	BCH_logs_items("Number of all data bits ", to_string(NUMBER_OF_MESSAGE_POLYNOMIALS * k));
+	BCH_logs_items("Number of all data + redundant bits ", to_string(NUMBER_OF_MESSAGE_POLYNOMIALS * n));
+	BCH_logs_items("Number of all generated errors ", to_string(g_introduced_errors_count));
+	BCH_logs_items("Number of all message polynomials ", to_string(NUMBER_OF_MESSAGE_POLYNOMIALS));
+	BCH_logs_items("Number of successful decodings ", to_string(g_success_count));
+	BCH_logs_items("Number of decoding errors ", to_string(g_failure_count));
+	BCH_logs_items("Number of uncaught decoding errors", to_string(g_uncaught_errors_count));
+	BCH_logs_items("Number of over t errors in codewords", to_string(g_big_errors_count));
+	BCH_logs_items("Final data bits difference ", to_string(difference_count));
+	BCH_logs_items("Encoding and decoding time ", to_string(main_duration.count()).substr(0, to_string(main_duration.count()).length()-3) + " seconds ");
 
 	munmap(buffer, sb.st_size);
 	close(fd);
+
 	image_with_errors.close();
 	image_fixed.close();
 	BCH_logs.close();
+
 	return 0;
 }
