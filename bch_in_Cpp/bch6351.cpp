@@ -440,15 +440,15 @@ void BCH_code_long_t2::introduce_errors() {
 
 void print_help_message(const char *file_name) {
 	cout << "Usage:\n"
-		<< file_name << " [-h] -i <image> -p err_prob [-v]\n\n"
+		<< file_name << " [-h] -i image -p err_prob [-v]\n\n"
 		<< "Options:\n"
-		<< "  -i <file_name>	Choose one image from images folder, example: images/image2.bmp.\n"
+		<< "  -i image			Choose one image from images folder, example: images/image2.bmp.\n"
 		<< "  -p err_prob		Give probability between (10 and 10000000) that a 1 in err_prob error will occur in \n"
 		<< "			   the codeword during a simulated transmission through a noisy medium, example: 1000.\n"
 		<< "Optional arguments:\n"
 		<< "  -h	Show this help message.\n"
 		<< "  -v	Enable verbose_flag encoding and decoding logs which will print out the whole process to the \n"
-		<< "	   terminal, is disabled by default. WARNING! This option causes the threads to run sequenitally instead \n"
+		<< "	   terminal, is disabled by default. WARNING! This option causes the threads to run sequentially instead \n"
 		<< " 	   of in parallel which combined with printing operations to console causes a severe performance degradation.\n";
 }
 
