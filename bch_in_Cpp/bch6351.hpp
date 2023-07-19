@@ -1,3 +1,4 @@
+#include <any>
 #include <atomic>
 #include <bit>
 #include <bitset>
@@ -6,12 +7,15 @@
 #include <iomanip>
 #include <iostream>
 #include <fstream>
+#include <functional>
 #include <memory>
 #include <mutex>
 #include <random>
 #include <set>
 #include <thread>
 #include <time.h>
+#include <unordered_map>
+#include <variant>
 #include <vector>
 #include <fcntl.h>
 #include <sys/mman.h>
@@ -19,116 +23,187 @@
 #include <unistd.h>
 
 #define GFB 63 // Galois Field Barrier = 2**m - 1 = 2**6 - 1
-#define n 63
-#define k 51
-#define t 2
 #define HEADER_BYTES 30
 
-// global std::atomic counters:
-std::atomic<int> g_success_count{0};
-std::atomic<int> g_failure_count{0};
-std::atomic<int> g_introduced_errors_count{0};
-std::atomic<int> g_big_errors_count{0};
-std::atomic<int> g_uncaught_errors_count{0};
+// BCH CODE PARAMETERS
+namespace bcp {
+    ssize_t n, k, t;
+}
 
+struct codeTypeExplicit {
+    static constexpr size_t bch6351_n = 63;
+    static constexpr size_t bch6351_k = 51;
+    static constexpr size_t bch6351_t = 2;
 
-// verbose logs and sequential threads flag (off by default):
-bool verbose_flag = false;
+    static constexpr size_t bch6345_n = 63;
+    static constexpr size_t bch6345_k = 45;
+    static constexpr size_t bch6345_t = 3;
 
-// stylistic:
-const std::string LINE(n/2 - 4, '*');
-const std::string DASH_LINE(n/2, '-');
+    static constexpr size_t bch4836_n = 48;
+    static constexpr size_t bch4836_k = 36;
+    static constexpr size_t bch4836_t = 2;
 
-enum Status {
-    SUCCESS = 0,
-    FAIL = -1
+    static constexpr size_t bch4830_n = 48;
+    static constexpr size_t bch4830_k = 30;
+    static constexpr size_t bch4830_t = 3;
 };
 
-class BCH_code_long_t2; // forward declaration
+// global atomic counters:
+struct globalCounters {
+    std::atomic<int> success_count{0};
+    std::atomic<int> failure_count{0};
+    std::atomic<int> introduced_errors_count{0};
+    std::atomic<int> big_errors_count{0};
+    std::atomic<int> uncaught_errors_count{0};
+};
 
-namespace bch {
-    // variables:
+
+// TODO:  stylistic:
+const std::string LINE(50/2 - 4, '*');
+const std::string DASH_LINE(50/2, '-');
+
+enum status {
+    SUCCESS,
+    FAIL    = -1
+};
+
+enum codeType {
+    BCH6351,
+    BCH6345,
+    BCH4836,
+    BCH4830
+};
+
+template <size_t N, size_t K>
+struct polynomialData{
+    union org {
+        std::bitset<N> codeword;
+        std::bitset<K> data;
+    };
+    union rec {
+        std::bitset<N> codeword;
+        std::bitset<K> data;
+    };
+    union dec {
+        std::bitset<N> codeword;
+        std::bitset<K> data;
+    };
+    union temp {
+        std::bitset<N> codeword;
+        std::bitset<K> data;
+    };
+    org  original{};
+    rec  received{};
+    dec  decoded{};
+    temp temporary{};
+};
+
+struct threadZones {
+	// MESSAGE_BYTES_THREAD_GROUP beginning
+	ssize_t MBTG_beginning;
+	// MESSAGE_BYTES_THREAD_GROUP end
+	ssize_t MBTG_end;
+	// MESSAGE_POLYNOMIALS_THREAD_GROUP beginning
+	ssize_t MPTG_beginning;
+	// MESSAGE_POLYNOMIALS_THREAD_GROUP end
+	ssize_t MPTG_end;
+	int bit_pos;
+};
+
+// forward declaration for mathHelper:
+template <size_t N>
+struct mathHelper;
+template <size_t N>
+void readPrimitivePolynomial(mathHelper<N>& bch_math);
+template <size_t N>
+void generateGaloisField(mathHelper<N>& bch_math);
+template <size_t N>
+void generateGeneratorPolynomial(mathHelper<N>& bch_math);
+
+template <size_t N>
+struct mathHelper {
     int m;
-    int primitive_polynomial;
+    std::bitset <N> primitive_polynomial_bitset {0b1011011};
+    int primitive_polynomial_int;
     int alpha_to[GFB], index_of[GFB];
-    std::bitset <n> p;
-    std::bitset <n> generator_polynomial_bitset;
+    std::bitset <N> generator_polynomial_bitset;
     std::vector <int> zeros, g, errpos;
     std::vector <std::vector <int>> zeros_cosets;
-    std::string filename;
-    int error_probability;
-    std::mutex Mutex;
-    // std::vectors:
-    std::vector <std::shared_ptr<BCH_code_long_t2>> BCH_objects;
-    std::vector <std::bitset <k>> vector_of_message_polynomials;
-    std::vector <unsigned char> recovered_charstream;
-    std::vector <unsigned char> modified_charstream;
-    // functions:
-    /**
-     * Read the primitive polynomial of degree 6 from binary form
-    */
-    void read_p();
-    /**
-     * Generate a Galois Field for GF(2**m-1) where m = 6
-    */
-    void generate_gf();
-    /**
-     * Compute the generator polynomial
-    */
-    void gen_poly();
-    inline int MSB(const std::bitset <n> &Polynomial);
-    void verbose_polynomial(const std::bitset <n> &Polynomial);
-    int multiply_int_polynomials(int Mulitplicand, int Multiplicator);
-    template <size_t N>
-    void reverse_bitset(std::bitset <N> &Polynomial, int Shift);
-    /**
-     * Initialize the primitive polynomial and generate Galois Field and 
-     * generator polynomial for later use in encoding and decoding
-    */
-    void initialize_BCH() {
-        read_p();
-        generate_gf();
-        gen_poly();
-    }
 };
 
-class BCH_code_long_t2 {
-	public:
-        explicit BCH_code_long_t2 (const std::bitset <n> &data) : Data(data) {
+class Bch6351 {
+    public:
+        explicit Bch6351 (const std::bitset <51> &data) {
+            test_polys_.original.data = data;
         }
-        /**
-         * Calculate redundant bits and encode message into a Codeword polynomial
-         */
-        void encode_bch();
-        /**
-         * Introduce errors to a Codeword based on a given probability and save it 
-         * as a Received_Codeword
-        */
-        void introduce_errors();
-        /**
-         * Print original Codeword and Received_Codeword in binary form and count number of
-         * all errors in Received_Codewords and also all errors over t in Received_Codewords
-         */
-        void print_original_codeword_and_received_codeword();
-        /**
-         * Calculate syndromes and use Berlekamp-Massey algorith to decode the Received_Codeword
-         * polynomial
-         * @returns Decoding Status flag
-         */
-        Status decode_bch();
-        /**
-         * Print original Data and Decoded_Data in binary form and count number of
-         * all uncaught decoding errors
-         */
-        void print_original_message_and_decoded_message();
-        // variables:
-        std::bitset <n> Data;
-        std::bitset <n> Codeword;
-        std::bitset <n> Received_Codeword;
-        std::bitset <k> Received_Data;
-        std::bitset <k> Decoded_Data;
+        static constexpr size_t n_ = 63;
+        static constexpr size_t k_ = 51;
+        static constexpr size_t t_ = (n_ - k_) / 6;
+        static std::vector <std::bitset <k_>> vector_of_message_polynomials;
+        polynomialData<n_, k_> test_polys_{};
+};
 
-    private:
-        std::vector <int> calculate_syndromes(const std::bitset<n> &Received_Codeword, bool &errors_in_codeword);
-        std::pair<std::bitset <n>, std::bitset <n>> divide_bitset_polynomials(const std::bitset <n> &Dividend, const std::bitset <n> &Divisor);
+class Bch6345 {
+    public:
+        explicit Bch6345(const std::bitset <45> &data) {
+            test_polys_.original.data = data;
+        }
+        static constexpr size_t n_ = 63;
+        static constexpr size_t k_ = 45;
+        static constexpr size_t t_ = (n_ - k_) / 6;
+        static std::vector <std::bitset <k_>> vector_of_message_polynomials;
+        polynomialData<n_, k_> test_polys_{};
+};
+
+class Bch4836 {
+    public:
+        explicit Bch4836(const std::bitset <36> &data) {
+            test_polys_.original.data = data;
+        }
+        static constexpr size_t n_ = 48;
+        static constexpr size_t k_ = 36;
+        static constexpr size_t t_ = (n_ - k_) / 6;
+        static std::vector <std::bitset <k_>> vector_of_message_polynomials;
+        polynomialData<n_, k_> test_polys_{};
+};
+
+class Bch4830{
+    public:
+        explicit Bch4830(const std::bitset <30> &data) {
+            test_polys_.original.data = data;
+        }
+        static constexpr size_t n_ = 48;
+        static constexpr size_t k_ = 30;
+        static constexpr size_t t_ = (n_ - k_) / 6;
+        static std::vector <std::bitset <k_>> vector_of_message_polynomials;
+        polynomialData<n_, k_> test_polys_{};
+};
+
+using bchType = std::variant<std::unique_ptr<Bch6351>, std::unique_ptr<Bch6345>, 
+                             std::unique_ptr<Bch4836>, std::unique_ptr<Bch4830>>;
+
+namespace bch {
+    codeType code_type;
+
+    std::string filename;
+    std::mutex Mutex;
+
+    int error_probability;
+    template <size_t N>
+    mathHelper<N>* bch_math;
+    // the big dawg
+    std::vector <bchType> BCH_objects;
+    std::vector <unsigned char> recovered_charstream;
+    std::vector <unsigned char> modified_charstream;
+    template <size_t X>
+    int MSB(const std::bitset <X> &Polynomial);
+    template <size_t X>
+    void verbosePolynomial(const std::bitset <X> &Polynomial);
+    int multiplyIntPolynomials(int mulitplicand, int multiplicator);
+    template <size_t X>
+    void reverseBitset(std::bitset <X> &Polynomial, int Shift);
+    template <size_t X>
+    std::pair<std::bitset <X>, std::bitset <X>> divideBitsetPolynomials(
+		const std::bitset <X> &dividend, 
+		const std::bitset <X> &divisor);
 };

@@ -1,17 +1,21 @@
 #include "bch4830.hpp"
+#include "bch_logger.hpp"
 
-void bch::read_p() {
+BchLogger bch_logger;
+
+void bch::readPrimitivePolynomial() {
 	p = 0b1011011;
 	primitive_polynomial = p.to_ulong();
 	std::cout << "Primitive polynomial:" << std::endl << "p(x) = ";
-	verbose_polynomial(p);
+	verbosePolynomial(p);
+	bch_logger.log("KUTASIE", " zasrany\n", "kiełbo\n");
 }
 
 inline int bch::MSB(const std::bitset <n> &Polynomial) {
 	return (n + (GFB-n) - std::countl_zero(Polynomial.to_ullong()));
 }
 
-void bch::generate_gf() {
+void bch::generateGaloisField() {
 	bch::index_of[0] = -1;
 	m = bch::MSB(p);
 	for (int i = 0; i < GFB; i++) {
@@ -29,7 +33,7 @@ void bch::generate_gf() {
 	}
 }
 
-void bch::gen_poly() {
+void bch::generateGeneratorPolynomial() {
 	std::vector <std::vector <int>> cycle_cosets;
 	std::set <int> unique_elements;
 	std::pair<std::set<int>::iterator, bool> status;
@@ -77,7 +81,7 @@ void bch::gen_poly() {
 	for (const auto& zero_coset : zeros_cosets) {
 		int product = bch::alpha_to[zero_coset[0]] ^ 2; // (ax + x)
 		for (uint i = 1; i < zero_coset.size(); i++) {
-			product = multiply_int_polynomials(product, bch::alpha_to[zero_coset[i]] ^ 2);
+			product = multiplyIntPolynomials(product, bch::alpha_to[zero_coset[i]] ^ 2);
 		}
 		product %= GFB+1;
 		product ^= primitive_polynomial;
@@ -85,18 +89,18 @@ void bch::gen_poly() {
 	}
 	int generator_polynomial = min_polynomials[0];
 	for (uint i=1; i<t; i++) {
-		generator_polynomial = multiply_int_polynomials(generator_polynomial, min_polynomials[i]);
+		generator_polynomial = multiplyIntPolynomials(generator_polynomial, min_polynomials[i]);
 	}
 	generator_polynomial_bitset = generator_polynomial;
-	reverse_bitset(generator_polynomial_bitset, k-1);
+	reverseBitset(generator_polynomial_bitset, k-1);
 	std::cout << "This is a (" << n << "," << k << "," << t*2+1 << ") binary bch code" << std::endl;
 	std::cout << "g(x) is " << generator_polynomial_bitset.to_string().substr(n - (n-k+1)) << std::endl;
 }
 
-void BCH_code_short_t3::encode_bch() {
+void BCH_code_short_t3::encodeBch() {
 	std::bitset<n> codeword;
 	std::bitset<n> shifted_data = this->Data<<(n-k);
-	std::bitset<n> rb = divide_bitset_polynomials(shifted_data, bch::generator_polynomial_bitset).first;
+	std::bitset<n> rb = divideBitsetPolynomials(shifted_data, bch::generator_polynomial_bitset).first;
 	codeword = shifted_data ^ rb;
 	if (verbose_flag) {
 		std::cout << std::endl;
@@ -104,7 +108,7 @@ void BCH_code_short_t3::encode_bch() {
 	this->Codeword = codeword;
 }
 
-std::vector <int> BCH_code_short_t3::calculate_syndromes(const std::bitset<n> &Received_Codeword, bool &errors_in_codeword) {
+std::vector <int> BCH_code_short_t3::calculateSyndromes(const std::bitset<n> &Received_Codeword, bool &errors_in_codeword) {
 	std::vector <int> syndromes(2*t+1);
 	for (int i = 1; i <= 2*t; i++) {
 		syndromes[i] = 0;
@@ -129,7 +133,7 @@ std::vector <int> BCH_code_short_t3::calculate_syndromes(const std::bitset<n> &R
 	return syndromes;
 }
 
-Status BCH_code_short_t3::decode_bch() {
+status BCH_code_short_t3::decodeBch() {
 	/*
 	 Simon Rockliff's implementation of Berlekamp's algorithm.
 	 Assume we have received bits in Received_Codeword[i], i=0..(n-1).
@@ -153,7 +157,7 @@ Status BCH_code_short_t3::decode_bch() {
 	*/
 
 	bool errors_in_codeword = false;
-	std::vector <int> syndromes = calculate_syndromes(this->Received_Codeword, errors_in_codeword);
+	std::vector <int> syndromes = calculateSyndromes(this->Received_Codeword, errors_in_codeword);
 	std::bitset <n> Decoded_Codeword = Received_Codeword;
 	if (errors_in_codeword) {
 		/*
@@ -312,7 +316,7 @@ Status BCH_code_short_t3::decode_bch() {
 	return SUCCESS;
 }
 
-void bch::verbose_polynomial(const std::bitset <n> &Polynomial) {
+void bch::verbosePolynomial(const std::bitset <n> &Polynomial) {
 	int power = bch::MSB(Polynomial);
 	for (int i=power; i>=0; i--) {
 		if (Polynomial[i]) {
@@ -334,7 +338,7 @@ void bch::verbose_polynomial(const std::bitset <n> &Polynomial) {
 }
 
 template<size_t N>
-void bch::reverse_bitset(std::bitset <N> &Polynomial, int Shift) {
+void bch::reverseBitset(std::bitset <N> &Polynomial, int Shift) {
     for(size_t i = 0; i < N/2; ++i) {
     	bool temp_bit = Polynomial[i];
     	Polynomial[i] = Polynomial[N-i-1];
@@ -343,30 +347,30 @@ void bch::reverse_bitset(std::bitset <N> &Polynomial, int Shift) {
 	Polynomial >>= Shift;
 }
 
-std::pair<std::bitset <n>, std::bitset <n>> BCH_code_short_t3::divide_bitset_polynomials(
-			const std::bitset <n> &Dividend, const std::bitset <n> &Divisor) {
-	std::bitset <n> quotient, remainder = Dividend;
- 	while (bch::MSB(remainder) >= bch::MSB(Divisor)) {
-		int shift = bch::MSB(remainder) - bch::MSB(Divisor);
-		remainder ^= Divisor << shift;
+std::pair<std::bitset <n>, std::bitset <n>> BCH_code_short_t3::divideBitsetPolynomials(
+			const std::bitset <n> &dividend, const std::bitset <n> &divisor) {
+	std::bitset <n> quotient, remainder = dividend;
+ 	while (bch::MSB(remainder) >= bch::MSB(divisor)) {
+		int shift = bch::MSB(remainder) - bch::MSB(divisor);
+		remainder ^= divisor << shift;
 		quotient.flip(shift); 
 	}
 	return {remainder, quotient};
 }
 
-int bch::multiply_int_polynomials(int Mulitplicand, int Multiplicator) {
+int bch::multiplyIntPolynomials(int mulitplicand, int multiplicator) {
 	int product = 0;
-	while (Mulitplicand > 0) {
-		if (Mulitplicand & 1) {
-			product ^= Multiplicator;
+	while (mulitplicand > 0) {
+		if (mulitplicand & 1) {
+			product ^= multiplicator;
 		}
-		Multiplicator <<= 1;
-		Mulitplicand >>= 1;
+		multiplicator <<= 1;
+		mulitplicand >>= 1;
 	}
 	return product;
 }
 
-void BCH_code_short_t3::print_original_codeword_and_received_codeword() {
+void BCH_code_short_t3::compareAndPrintCodewords() {
 	if (verbose_flag) {
 		std::cout << "c(x) = "<< this->Codeword << std::endl;
 		std::cout << "r(x) = "<< this->Received_Codeword << std::endl;
@@ -393,7 +397,7 @@ void BCH_code_short_t3::print_original_codeword_and_received_codeword() {
 	}
 }
 
-void BCH_code_short_t3::print_original_message_and_decoded_message() {
+void BCH_code_short_t3::compareAndPrintData() {
 	if (verbose_flag) {
 		std::cout <<  DASH_LINE << "Results" << DASH_LINE << std::endl;
 	}
@@ -420,7 +424,7 @@ void BCH_code_short_t3::print_original_message_and_decoded_message() {
 	}
 }
 
-void BCH_code_short_t3::introduce_errors() {
+void BCH_code_short_t3::introduceErrors() {
 	std::bitset <n> received_codeword = this->Codeword;
 	std::random_device rd;
 	std::mt19937 gen (rd());
@@ -435,7 +439,7 @@ void BCH_code_short_t3::introduce_errors() {
 	this->Received_Codeword = received_codeword;
 }
 
-void print_help_message(const char *file_name) {
+void printHelpMessage(const char *file_name) {
 	std::cout << "Usage:\n"
 		<< file_name << " [-h] -i image -p err_prob [-v]\n\n"
 		<< "Options:\n"
@@ -449,28 +453,28 @@ void print_help_message(const char *file_name) {
 		<< " 	   of in parallel which combined with printing operations to console causes a severe performance degradation.\n";
 }
 
-void begin_main_process(const int thread_id, const int MBTG_beginning, const int MBTG_end) {
+void beginMainProcess(const int thread_id, const int MBTG_beginning, const int MBTG_end) {
 	if (verbose_flag) { bch::Mutex.lock(); }
 	for (int i = MBTG_beginning; i < MBTG_end; i++) {
 		if (verbose_flag) {
 			std::cout << LINE << " Worker " << thread_id << " START " << LINE;
 		}
 		
-		bch::BCH_objects[i] = make_shared<BCH_code_short_t3>(std::bitset<n>(bch::vector_of_message_polynomials[i].to_string()));
+		bch::BCH_objects[i] = std::make_shared<BCH_code_short_t3>(std::bitset<n>(bch::vector_of_message_polynomials[i].to_string()));
 
-		bch::BCH_objects[i]->encode_bch();
+		bch::BCH_objects[i]->encodeBch();
 
-		bch::BCH_objects[i]->introduce_errors();
+		bch::BCH_objects[i]->introduceErrors();
 
-		bch::BCH_objects[i]->print_original_codeword_and_received_codeword();
+		bch::BCH_objects[i]->compareAndPrintCodewords();
 
 		bch::BCH_objects[i]->Received_Data = std::bitset <k>(bch::BCH_objects[i]->Received_Codeword.to_string().substr(0, k));
 
-		bool status = bch::BCH_objects[i]->decode_bch();
+		bool status = bch::BCH_objects[i]->decodeBch();
 
 		// check the decoding status
 		if (status == SUCCESS) {
-			bch::BCH_objects[i]->print_original_message_and_decoded_message();
+			bch::BCH_objects[i]->compareAndPrintData();
 			g_success_count++;
 		} else {
 			g_failure_count++;
@@ -483,7 +487,7 @@ void begin_main_process(const int thread_id, const int MBTG_beginning, const int
 	if (verbose_flag) { bch::Mutex.unlock(); }
 }
 
-void populate_vector_of_message_polynomials (const unsigned char* str, const int MBTG_beginning, const int MBTG_end, 
+void populateVectorOfMessagePolynomials (const unsigned char* str, const int MBTG_beginning, const int MBTG_end, 
 											const int MPTG_end, const int Bit_pos) {
 	std::bitset<k> temp_bitset;
 	int it = MPTG_end;
@@ -505,7 +509,7 @@ void populate_vector_of_message_polynomials (const unsigned char* str, const int
 	}
 }
 
-void populate_unsigned_char_vectors (const int MBTG_beginning, const int MBTG_end, 
+void populateUnsignedCharVectors (const int MBTG_beginning, const int MBTG_end, 
 										const int MPTG_end, const int Bit_pos) {
 	int it = MPTG_end;
 	int bit_pos = Bit_pos;
@@ -535,7 +539,7 @@ int parse_arguments (const int argc, char* argv[]) {
 	while ((c = getopt (argc, argv, "i:p:vh")) != FAIL) {
 		switch (c) {
 			case 'h':
-				print_help_message(argv[0]);
+				printHelpMessage(argv[0]);
 				exit(0);
 			case 'i':
 				bch::filename = optarg;
@@ -553,7 +557,7 @@ int parse_arguments (const int argc, char* argv[]) {
 				}
 				break;
 			case 'v':
-				verbose_flag = true;
+				bch_logger.enable_logging_ = 1;
 				break;
 			case '?':
 					std::cout << optopt << std::endl;
@@ -562,7 +566,7 @@ int parse_arguments (const int argc, char* argv[]) {
 				abort();
 		}
 	}
-	
+
 	return fd;
 }
 
@@ -614,7 +618,7 @@ int main(int argc, char* argv[]) {
 	std::cout << "number of detected threads: " << NUM_THREADS << std::endl;
 
 	// MESSAGE_POLYNOMIALS_THREAD_GROUP --> count of group of message polynomials that will be used by a single thread
-	const int MESSAGE_POLYNOMIALS_THREAD_GROUP = NUMBER_OF_MESSAGE_POLYNOMIALS%NUM_THREADS? 
+	const int MESSAGE_POLYNOMIALS_THREAD_GROUP = (NUMBER_OF_MESSAGE_POLYNOMIALS%NUM_THREADS)? 
 													NUMBER_OF_MESSAGE_POLYNOMIALS/NUM_THREADS :
 													NUMBER_OF_MESSAGE_POLYNOMIALS/NUM_THREADS - 1;
 
@@ -651,7 +655,7 @@ int main(int argc, char* argv[]) {
 
 		old_bit_pos = bit_pos;
 
-		threads.push_back(std::thread(populate_vector_of_message_polynomials, buffer, MBTG_beginning, 
+		threads.push_back(std::thread(populateVectorOfMessagePolynomials, buffer, MBTG_beginning, 
 									MBTG_end, MPTG_end, bit_pos));
 	}
 
@@ -684,7 +688,7 @@ int main(int argc, char* argv[]) {
 			MBTG_end = NUMBER_OF_MESSAGE_POLYNOMIALS;
 		}
 
-		threads.push_back(std::thread(begin_main_process, thread_id, MBTG_beginning, MBTG_end));
+		threads.push_back(std::thread(beginMainProcess, thread_id, MBTG_beginning, MBTG_end));
 	}
 
 	for (auto& thread : threads) {
@@ -723,7 +727,7 @@ int main(int argc, char* argv[]) {
 
 		old_bit_pos = bit_pos;
 
-		threads.push_back(std::thread(populate_unsigned_char_vectors, MBTG_beginning, MBTG_end, 
+		threads.push_back(std::thread(populateUnsignedCharVectors, MBTG_beginning, MBTG_end, 
 									MPTG_end, bit_pos));
 	}
 

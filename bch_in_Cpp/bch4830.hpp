@@ -19,9 +19,9 @@
 #include <unistd.h>
 
 #define GFB 63 // Galois Field Barrier = 2**m - 1 = 2**6 - 1
-#define n 48
-#define k 30
-#define t 3
+// #define n 48
+// #define k 30
+// #define t 3
 #define HEADER_BYTES 30
 
 // global std::atomic counters:
@@ -39,7 +39,7 @@ bool verbose_flag = false;
 const std::string LINE(n/2 - 4, '*');
 const std::string DASH_LINE(n/2, '-');
 
-enum Status {
+enum status {
     SUCCESS = 0,
     FAIL = -1
 };
@@ -67,28 +67,28 @@ namespace bch {
     /**
      * Read the primitive polynomial of degree 6 from binary form
     */
-    void read_p();
+    void readPrimitivePolynomial();
     /**
      * Generate a Galois Field for GF(2**m-1) where m = 6
     */
-    void generate_gf();
+    void generateGaloisField();
     /**
      * Compute the generator polynomial
     */
-    void gen_poly();
+    void generateGeneratorPolynomial();
     inline int MSB(const std::bitset <n> &Polynomial);
-    void verbose_polynomial(const std::bitset <n> &Polynomial);
-    int multiply_int_polynomials(int Mulitplicand, int Multiplicator);
+    void verbosePolynomial(const std::bitset <n> &Polynomial);
+    int multiplyIntPolynomials(int mulitplicand, int multiplicator);
     template <size_t N>
-    void reverse_bitset(std::bitset <N> &Polynomial, int Shift);
+    void reverseBitset(std::bitset <N> &Polynomial, int Shift);
     /**
      * Initialize the primitive polynomial and generate Galois Field and 
      * generator polynomial for later use in encoding and decoding
     */
     void initialize_BCH() {
-        read_p();
-        generate_gf();
-        gen_poly();
+        readPrimitivePolynomial();
+        generateGaloisField();
+        generateGeneratorPolynomial();
     }
 };
 
@@ -99,28 +99,28 @@ class BCH_code_short_t3 {
         /**
          * Calculate redundant bits and encode message into a Codeword polynomial
          */
-        void encode_bch();
+        void encodeBch();
         /**
          * Introduce errors to a Codeword based on a given probability and save it 
          * as a Received_Codeword
         */
-        void introduce_errors();
+        void introduceErrors();
         /**
          * Print original Codeword and Received_Codeword in binary form and count number of
          * all errors in Received_Codewords and also all errors over t in Received_Codewords
          */
-        void print_original_codeword_and_received_codeword();
+        void compareAndPrintCodewords();
         /**
          * Calculate syndromes and use Berlekamp-Massey algorith to decode the Received_Codeword
          * polynomial
-         * @returns Decoding Status flag
+         * @returns Decoding status flag
          */
-        Status decode_bch();
+        status decodeBch();
         /**
          * Print original Data and Decoded_Data in binary form and count number of
          * all uncaught decoding errors
          */
-        void print_original_message_and_decoded_message();
+        void compareAndPrintData();
         // variables:
         std::bitset <n> Data;
         std::bitset <n> Codeword;
@@ -129,6 +129,6 @@ class BCH_code_short_t3 {
         std::bitset <k> Decoded_Data;
 
     private:
-        std::vector <int> calculate_syndromes(const std::bitset<n> &Received_Codeword, bool &errors_in_codeword);
-        std::pair<std::bitset <n>, std::bitset <n>> divide_bitset_polynomials(const std::bitset <n> &Dividend, const std::bitset <n> &Divisor);
+        std::vector <int> calculateSyndromes(const std::bitset<n> &Received_Codeword, bool &errors_in_codeword);
+        std::pair<std::bitset <n>, std::bitset <n>> divideBitsetPolynomials(const std::bitset <n> &dividend, const std::bitset <n> &divisor);
 };
