@@ -76,7 +76,7 @@ enum codeType {
 
 template <size_t N, size_t K>
 struct polynomialData{
-    union org {
+    union enc {
         std::bitset<N> codeword;
         std::bitset<K> data;
     };
@@ -88,14 +88,9 @@ struct polynomialData{
         std::bitset<N> codeword;
         std::bitset<K> data;
     };
-    union temp {
-        std::bitset<N> codeword;
-        std::bitset<K> data;
-    };
-    org  original{};
+    enc  encoded{};
     rec  received{};
     dec  decoded{};
-    temp temporary{};
 };
 
 struct threadZones {
@@ -134,7 +129,7 @@ struct mathHelper {
 class Bch6351 {
     public:
         explicit Bch6351 (const std::bitset <51> &data) {
-            test_polys_.original.data = data;
+            test_polys_.encoded.data = data;
         }
         static constexpr size_t n_ = 63;
         static constexpr size_t k_ = 51;
@@ -146,7 +141,7 @@ class Bch6351 {
 class Bch6345 {
     public:
         explicit Bch6345(const std::bitset <45> &data) {
-            test_polys_.original.data = data;
+            test_polys_.encoded.data = data;
         }
         static constexpr size_t n_ = 63;
         static constexpr size_t k_ = 45;
@@ -158,7 +153,7 @@ class Bch6345 {
 class Bch4836 {
     public:
         explicit Bch4836(const std::bitset <36> &data) {
-            test_polys_.original.data = data;
+            test_polys_.encoded.data = data;
         }
         static constexpr size_t n_ = 48;
         static constexpr size_t k_ = 36;
@@ -170,7 +165,7 @@ class Bch4836 {
 class Bch4830{
     public:
         explicit Bch4830(const std::bitset <30> &data) {
-            test_polys_.original.data = data;
+            test_polys_.encoded.data = data;
         }
         static constexpr size_t n_ = 48;
         static constexpr size_t k_ = 30;
@@ -202,6 +197,8 @@ namespace bch {
     int multiplyIntPolynomials(int mulitplicand, int multiplicator);
     template <size_t X>
     void reverseBitset(std::bitset <X> &Polynomial, int Shift);
+    template<size_t X>
+    std::bitset <X> tempReverseBitset(std::bitset <X> Polynomial, int Shift);
     template <size_t X>
     std::pair<std::bitset <X>, std::bitset <X>> divideBitsetPolynomials(
 		const std::bitset <X> &dividend, 

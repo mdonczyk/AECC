@@ -19,9 +19,9 @@
 #include <unistd.h>
 
 #define GFB 63 // Galois Field Barrier = 2**m - 1 = 2**6 - 1
-// #define n 48
-// #define k 30
-// #define t 3
+#define n 48
+#define k 30
+#define t 3
 #define HEADER_BYTES 30
 
 // global std::atomic counters:

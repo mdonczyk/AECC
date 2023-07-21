@@ -102,6 +102,7 @@ void BCH_code_short_t3::encodeBch() {
 	std::bitset<n> shifted_data = this->Data<<(n-k);
 	std::bitset<n> rb = divideBitsetPolynomials(shifted_data, bch::generator_polynomial_bitset).first;
 	codeword = shifted_data ^ rb;
+	bch::reverseBitset(codeword, 0);
 	if (verbose_flag) {
 		std::cout << std::endl;
 	}
@@ -113,7 +114,7 @@ std::vector <int> BCH_code_short_t3::calculateSyndromes(const std::bitset<n> &Re
 	for (int i = 1; i <= 2*t; i++) {
 		syndromes[i] = 0;
 		for (int j = 0; j < n; j++) {
-			if (Received_Codeword[n - j - 1] != 0) {
+			if (Received_Codeword[j] != 0) {
 				syndromes[i] ^= bch::alpha_to[(i*j) % GFB];
 			}
 		}
@@ -159,6 +160,7 @@ status BCH_code_short_t3::decodeBch() {
 	bool errors_in_codeword = false;
 	std::vector <int> syndromes = calculateSyndromes(this->Received_Codeword, errors_in_codeword);
 	std::bitset <n> Decoded_Codeword = Received_Codeword;
+	bch::reverseBitset(this->Received_Codeword, 0);
 	if (errors_in_codeword) {
 		/*
 		 Compute the error location polynomial via the Berlekamp
@@ -270,7 +272,7 @@ status BCH_code_short_t3::decodeBch() {
 				}
 				// Store error location number indices
 				if (!q) {
-					error_locations.push_back(n - i + (GFB-n));
+					error_locations.push_back(i  - 1 -(GFB-n));
 					if (verbose_flag) {
 						std::cout << error_locations.back() << " ";
 					}
@@ -287,6 +289,7 @@ status BCH_code_short_t3::decodeBch() {
 						if (verbose_flag) {
 							std::cout<<std::endl<<"Incomplete decoding: errors detected (err_loc out of bound: err_loc = " << err_loc << ")"<<std::endl;
 						}
+						bch::reverseBitset(Decoded_Codeword, 0);
 						this->Decoded_Data = (std::bitset<k>)Decoded_Codeword.to_string().substr(0, k);
 						return FAIL;
 					} else {
@@ -297,6 +300,7 @@ status BCH_code_short_t3::decodeBch() {
 				if (verbose_flag) {
 					std::cout<<std::endl<<"Incomplete decoding: errors detected (elp has degree > t) "<<std::endl;
 				}
+				bch::reverseBitset(Decoded_Codeword, 0);
 				this->Decoded_Data = (std::bitset<k>)Decoded_Codeword.to_string().substr(0, k);
 				return FAIL;
 			}
@@ -304,6 +308,7 @@ status BCH_code_short_t3::decodeBch() {
 			if (verbose_flag) {
 				std::cout<<std::endl<<"Incomplete decoding: errors detected (l[u] > t: l[u] = " << l[u] << ")"<<std::endl;
 			}
+			bch::reverseBitset(Decoded_Codeword, 0);
 			this->Decoded_Data = (std::bitset<k>)Decoded_Codeword.to_string().substr(0, k);
 			return FAIL;
 		}
@@ -312,6 +317,7 @@ status BCH_code_short_t3::decodeBch() {
 			std::cout << "No errors found" << std::endl;
 		}
 	}
+	bch::reverseBitset(Decoded_Codeword, 0);
 	this->Decoded_Data = (std::bitset<k>)Decoded_Codeword.to_string().substr(0, k);
 	return SUCCESS;
 }
@@ -468,7 +474,8 @@ void beginMainProcess(const int thread_id, const int MBTG_beginning, const int M
 
 		bch::BCH_objects[i]->compareAndPrintCodewords();
 
-		bch::BCH_objects[i]->Received_Data = std::bitset <k>(bch::BCH_objects[i]->Received_Codeword.to_string().substr(0, k));
+		bch::BCH_objects[i]->Received_Data = std::bitset <k>(bch::BCH_objects[i]->Received_Codeword.to_string().substr(n-k, n));
+		bch::reverseBitset(bch::BCH_objects[i]->Received_Data, 0);
 
 		bool status = bch::BCH_objects[i]->decodeBch();
 
@@ -515,8 +522,8 @@ void populateUnsignedCharVectors (const int MBTG_beginning, const int MBTG_end,
 	int bit_pos = Bit_pos;
 	for (int i = MBTG_beginning; i < MBTG_end; i++) {
 		for (int j = 0; j < 8; ++j) {
-			bch::recovered_charstream[i] ^= bch::BCH_objects[it]->Decoded_Data[bit_pos] << j;
 			bch::modified_charstream[i] ^= bch::BCH_objects[it]->Received_Data[bit_pos] << j;
+			bch::recovered_charstream[i] ^= bch::BCH_objects[it]->Decoded_Data[bit_pos] << j;
 			bit_pos++;
 			if (bit_pos == k) {
 				it++;
@@ -557,7 +564,8 @@ int parse_arguments (const int argc, char* argv[]) {
 				}
 				break;
 			case 'v':
-				bch_logger.enable_logging_ = 1;
+				bch_logger.enable_logging_ = true;
+				verbose_flag = true;
 				break;
 			case '?':
 					std::cout << optopt << std::endl;
