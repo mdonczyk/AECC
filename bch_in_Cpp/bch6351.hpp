@@ -25,29 +25,6 @@
 #define GFB 63 // Galois Field Barrier = 2**m - 1 = 2**6 - 1
 #define HEADER_BYTES 30
 
-// BCH CODE PARAMETERS
-namespace bcp {
-    ssize_t n, k, t;
-}
-
-struct codeTypeExplicit {
-    static constexpr size_t bch6351_n = 63;
-    static constexpr size_t bch6351_k = 51;
-    static constexpr size_t bch6351_t = 2;
-
-    static constexpr size_t bch6345_n = 63;
-    static constexpr size_t bch6345_k = 45;
-    static constexpr size_t bch6345_t = 3;
-
-    static constexpr size_t bch4836_n = 48;
-    static constexpr size_t bch4836_k = 36;
-    static constexpr size_t bch4836_t = 2;
-
-    static constexpr size_t bch4830_n = 48;
-    static constexpr size_t bch4830_k = 30;
-    static constexpr size_t bch4830_t = 3;
-};
-
 // global atomic counters:
 struct globalCounters {
     std::atomic<int> success_count{0};
