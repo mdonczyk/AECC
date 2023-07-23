@@ -551,14 +551,14 @@ void beginMainProcess(
 		std::visit([&](auto& obj) -> void {
 				using current_class = CVBC<decltype(obj.get())>;
 
-				encodeBch<current_class>(obj->test_polys_, bch::bch_math<current_class::n_>);
+				encodeBch<current_class>(obj->codeword_polynomials_, bch::bch_math<current_class::n_>);
 
-				introduceErrors<current_class>(obj->test_polys_);
+				introduceErrors<current_class>(obj->codeword_polynomials_);
 
-				compareAndPrintCodewords<current_class>(obj->test_polys_);
+				compareAndPrintCodewords<current_class>(obj->codeword_polynomials_);
 
-				if (status st = decodeBch<current_class>(obj->test_polys_, bch::bch_math<current_class::n_>); st == SUCCESS) {
-					compareAndPrintData<current_class>(obj->test_polys_);
+				if (status st = decodeBch<current_class>(obj->codeword_polynomials_, bch::bch_math<current_class::n_>); st == SUCCESS) {
+					compareAndPrintData<current_class>(obj->codeword_polynomials_);
 					counters.success_count++;
 				} else {
 					counters.failure_count++;
@@ -607,14 +607,15 @@ void populateUnsignedCharVectors(
 	int bit_pos = zones.bit_pos;
 
 	auto temp_poly = std::visit(
-		[=](const auto& obj) {
-			return std::any(obj->test_polys_);
+		[=](auto& obj) {
+			using current_class = CVBC<decltype(obj.get())>;
+			// becasuse in decodeBch we reversed it back to normal we need to move the data to the right 
+			// so that the data bitset in union can read correct values
+			obj->codeword_polynomials_.received.codeword >>= (current_class::n_ - current_class::k_);
+			obj->codeword_polynomials_.decoded.codeword >>= (current_class::n_ - current_class::k_);
+			return std::any(obj->codeword_polynomials_);
 		}, objs[it]);
 	auto polynomials = std::any_cast<polynomialData<bch_class::n_, bch_class::k_>>(temp_poly);
-	// becasuse in decodeBch we reversed it back to normal we need to move the data to the right 
-	// so that the data bitset in union can read correct values
-	polynomials.received.codeword >>= (bch_class::n_ - bch_class::k_);
-	polynomials.decoded.codeword >>= (bch_class::n_ - bch_class::k_);
 
 	for (int i = zones.MBTG_beginning; i < zones.MBTG_end; i++) {
 		for (int j = 0; j < 8; ++j) {
@@ -624,12 +625,13 @@ void populateUnsignedCharVectors(
 			if (bit_pos == bch_class::k_) {
 				it++;
 				temp_poly = std::visit(
-					[=](const auto& obj) {
-						return std::any(obj->test_polys_);
+					[=](auto& obj) {
+						using current_class = CVBC<decltype(obj.get())>;
+						obj->codeword_polynomials_.received.codeword >>= (current_class::n_ - current_class::k_);
+						obj->codeword_polynomials_.decoded.codeword >>= (current_class::n_ - current_class::k_);
+						return std::any(obj->codeword_polynomials_);
 					}, objs[it]);
 				polynomials = std::any_cast<polynomialData<bch_class::n_, bch_class::k_>>(temp_poly);
-				polynomials.received.codeword >>= (bch_class::n_ - bch_class::k_);
-				polynomials.decoded.codeword >>= (bch_class::n_ - bch_class::k_);
 				bit_pos = 0;
 			}
 		}
@@ -797,16 +799,18 @@ int main(
 		zones.MBTG_beginning = MESSAGE_BYTES_THREAD_GROUP*thread_id;
 		zones.MBTG_end = MESSAGE_BYTES_THREAD_GROUP*(thread_id + 1);
 
-		if (thread_id == NUM_THREADS-1) {
-			zones.MBTG_end = FILE_BYTE_SIZE;
-		}
-		
 		std::visit([&](const auto& obj){
 			using current_class = CVBC<decltype(obj.get())>;
 			zones.bit_pos = (zones.MBTG_beginning*8) % current_class::k_;
 		}, bch::BCH_objects[0]);
 
-		if (zones.bit_pos < old_bit_pos) { overlaping_message_polynomial++; }
+		if (thread_id == NUM_THREADS-1) {
+			zones.MBTG_end = FILE_BYTE_SIZE;
+		}
+
+		if (zones.bit_pos < old_bit_pos) {
+			overlaping_message_polynomial++;
+		}
 
 		zones.MPTG_end = MESSAGE_POLYNOMIALS_THREAD_GROUP*thread_id + overlaping_message_polynomial;
 
@@ -930,14 +934,9 @@ int main(
 		std::visit([&](const auto& obj){
 			using current_class = CVBC<decltype(obj.get())>;
 			difference_count += (current_class::vector_of_message_polynomials[i] ^ 
-									obj->test_polys_.decoded.data).count();
+									obj->codeword_polynomials_.decoded.data).count();
 		}, bch::BCH_objects[i]);
 	}
-
-	// int total_fresh_diff = accumulate (bch::BCH_objects.begin(), bch::BCH_objects.end(), 0, 
-	//  	[](int sum, unique_ptr<BaseBCH> const& obj) 
-	// 	{ return sum + (obj->Codeword ^ obj->Received_Codeword).count(); });
-	// if (total_fresh_diff != counters.introduced_errors_count) { std::cout<< "Some of introduced errors cancelled each other out" << std::endl; }
 
 	auto table_row_separator = []()->void { std::cout << std::setw(42) << std::setfill('-') << "+" << std::setw(20) << "+" << std::setw(1) << "+" << std::setfill (' ') << std::endl; };
 	auto table_items = [](const std::string &lhs, const std::string &rhs)->void { std::cout << "| " << std::setw(40) << lhs << std::setw(20) << "| " + rhs << "|" << std::endl; };

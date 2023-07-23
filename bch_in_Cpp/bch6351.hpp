@@ -106,49 +106,49 @@ struct mathHelper {
 class Bch6351 {
     public:
         explicit Bch6351 (const std::bitset <51> &data) {
-            test_polys_.encoded.data = data;
+            codeword_polynomials_.encoded.data = data;
         }
         static constexpr size_t n_ = 63;
         static constexpr size_t k_ = 51;
         static constexpr size_t t_ = (n_ - k_) / 6;
         static std::vector <std::bitset <k_>> vector_of_message_polynomials;
-        polynomialData<n_, k_> test_polys_{};
+        polynomialData<n_, k_> codeword_polynomials_{};
 };
 
 class Bch6345 {
     public:
         explicit Bch6345(const std::bitset <45> &data) {
-            test_polys_.encoded.data = data;
+            codeword_polynomials_.encoded.data = data;
         }
         static constexpr size_t n_ = 63;
         static constexpr size_t k_ = 45;
         static constexpr size_t t_ = (n_ - k_) / 6;
         static std::vector <std::bitset <k_>> vector_of_message_polynomials;
-        polynomialData<n_, k_> test_polys_{};
+        polynomialData<n_, k_> codeword_polynomials_{};
 };
 
 class Bch4836 {
     public:
         explicit Bch4836(const std::bitset <36> &data) {
-            test_polys_.encoded.data = data;
+            codeword_polynomials_.encoded.data = data;
         }
         static constexpr size_t n_ = 48;
         static constexpr size_t k_ = 36;
         static constexpr size_t t_ = (n_ - k_) / 6;
         static std::vector <std::bitset <k_>> vector_of_message_polynomials;
-        polynomialData<n_, k_> test_polys_{};
+        polynomialData<n_, k_> codeword_polynomials_{};
 };
 
 class Bch4830{
     public:
         explicit Bch4830(const std::bitset <30> &data) {
-            test_polys_.encoded.data = data;
+            codeword_polynomials_.encoded.data = data;
         }
         static constexpr size_t n_ = 48;
         static constexpr size_t k_ = 30;
         static constexpr size_t t_ = (n_ - k_) / 6;
         static std::vector <std::bitset <k_>> vector_of_message_polynomials;
-        polynomialData<n_, k_> test_polys_{};
+        polynomialData<n_, k_> codeword_polynomials_{};
 };
 
 using bchType = std::variant<std::unique_ptr<Bch6351>, std::unique_ptr<Bch6345>, 
