@@ -1,5 +1,7 @@
 #include "bch6351.hpp"
 #include "bch_logger.hpp"
+#include "bch_utils.hpp"
+#include "bch_math.hpp"
 
 // use overload pattern here
 // template<typename... Ts> struct overload : public Ts... { using Ts::operator()...; };
@@ -21,149 +23,15 @@ std::vector<std::bitset <Bch4830::k_>> Bch4830::vector_of_message_polynomials;
 static BchLogger bch_logger;
 static globalCounters counters{};
 
-template <size_t X>
-int bch::MSB(
-		const std::bitset <X> &Polynomial)
-{
-	return (X + (GFB-X) - std::countl_zero(Polynomial.to_ullong()));
-}
-
-template <size_t N>
-void bch::verbosePolynomial(
-		const std::bitset <N> &Polynomial)
-{
-	int power = bch::MSB(Polynomial);
-	for (int i=power; i>=0; i--) {
-		if (Polynomial[i]) {
-			if (i != power) {
-				std::cout << " + " ;
-			}
-			if (i!=0) {
-				if (i == 1) {
-					std::cout << "x";
-				} else {
-				std::cout << "x^" << i;
-				}
-			} else {
-				std::cout << "1";
-			}
-		}
-	}
-	std::cout << std::endl;
-}
-
-/**
- * Read the primitive polynomial of degree 6 from binary form
-*/
-template <class bch_class>
-void readPrimitivePolynomial(
-		mathHelper<bch_class::n_>* bch_math)
-{
-	bch_math->primitive_polynomial_int = bch_math->primitive_polynomial_bitset.to_ulong();
-	std::cout << "Primitive polynomial:" << std::endl << "primitive_polynomial_bitset(x) = ";
-	bch::verbosePolynomial(bch_math->primitive_polynomial_bitset);
-}
-
-// done
-template<class bch_class>
-void generateGaloisField(
-		mathHelper<bch_class::n_>* bch_math)
-{
-	bch_math->index_of[0] = -1;
-	bch_math->m = bch::MSB(bch_math->primitive_polynomial_bitset);
-	for (int i = 0; i < GFB; i++) {
-		if (i < bch_math->m) {
-			bch_math->alpha_to[i] = 1 << i;
-			bch_math->index_of[bch_math->alpha_to[i]] = i;
-		} else {
-			if (bch_math->alpha_to[i - 1] >= 32) {
-				bch_math->alpha_to[i] = (bch_math->alpha_to[i - 1] << 1) ^ 
-										bch_math->primitive_polynomial_int;
-			} else {
-				bch_math->alpha_to[i] = bch_math->alpha_to[i - 1] << 1;
-			}
-			bch_math->index_of[bch_math->alpha_to[i]] = i;
-		}
-	}
-}
-
-template <class bch_class>
-void generateGeneratorPolynomial(
-		mathHelper<bch_class::n_>* bch_math)
-{
-	std::vector <std::vector <int>> cycle_cosets;
-	std::set <int> unique_elements;
-	std::pair<std::set<int>::iterator, bool> status;
-	int coset_element = 0;
-	cycle_cosets.push_back(std::vector<int>{0});
-	while (unique_elements.size() < GFB) {
-		status.second = false;
-		while (!status.second) {
-				coset_element++;
-				status = unique_elements.emplace(coset_element);
-			}
-		std::vector <int> coset;
-		coset.push_back(coset_element);
-		for (int i = 1; i < bch_math->m; i++) {
-			coset.push_back((coset[i-1] << 1) % GFB);
-			// TODO: maybe implement if initializer
-			status = unique_elements.emplace(coset[i]);
-			if (!status.second) {
-				break;
-			}
-			if (coset[0] == (coset[i] << 1) % GFB) {
-				cycle_cosets.push_back(coset);
-				break;
-			}
-		}
-	}
-	for (const auto& coset : cycle_cosets) {
-		bool root_found = false;
-		for (const auto& element : coset) {
-			for (int root = 1; root <= 2*bch_class::t_; root++) {
-				if (element == root) {
-					root_found = true;
-					break;
-				}
-			}
-			if(root_found) {
-				bch_math->zeros_cosets.push_back(coset);
-				break; 
-			}
-		}
-		if (bch_math->zeros_cosets.size() == bch_class::t_) {
-			break;
-		}
-	}
-	std::vector <int> min_polynomials;
-	for (const auto& zero_coset : bch_math->zeros_cosets) {
-		int product = bch_math->alpha_to[zero_coset[0]] ^ 2; // (ax + x)
-		for (uint i = 1; i < zero_coset.size(); i++) {
-			product = bch::multiplyIntPolynomials(product, bch_math->alpha_to[zero_coset[i]] ^ 2);
-		}
-		product %= GFB+1;
-		product ^= bch_math->primitive_polynomial_int;
-		min_polynomials.push_back(product);
-	}
-	int generator_polynomial = min_polynomials[0];
-	for (uint i=1; i<bch_class::t_; i++) {
-		generator_polynomial = bch::multiplyIntPolynomials(generator_polynomial, min_polynomials[i]);
-	}
-	bch_math->generator_polynomial_bitset = generator_polynomial;
-	bch::reverseBitset(bch_math->generator_polynomial_bitset, bch_class::k_-1);
-	std::cout << "This is a (" << bch_class::n_ << "," << bch_class::k_ << "," << bch_class::t_*2+1 << ") binary bch code" << std::endl;
-	std::cout << "g(x) is " << bch_math->generator_polynomial_bitset.to_string().substr(bch_class::n_ - (bch_class::n_-bch_class::k_+1)) << std::endl;
-}
-
 template<class bch_class>
 void encodeBch(
 		polynomialData<bch_class::n_, bch_class::k_>& polynomials, 
 		const mathHelper<bch_class::n_>* bch_math)
 {	
 	polynomials.encoded.codeword <<= (bch_class::n_-bch_class::k_);
-	std::bitset<bch_class::n_> rb = bch::divideBitsetPolynomials(polynomials.encoded.codeword, bch_math->generator_polynomial_bitset).first;
+	std::bitset<bch_class::n_> rb = divideBitsetPolynomials(polynomials.encoded.codeword, bch_math->generator_polynomial_bitset).first;
 	polynomials.encoded.codeword ^= rb;
-	bch::reverseBitset(polynomials.encoded.codeword, 0);
+	reverseBitset(polynomials.encoded.codeword, 0);
 	bch_logger.log("\n");
 }
 
@@ -229,8 +97,8 @@ status decodeBch(
 	polynomials.decoded.codeword = polynomials.received.codeword;
 
 	// get them back to normal:
-	bch::reverseBitset(polynomials.encoded.codeword, 0);
-	bch::reverseBitset(polynomials.received.codeword, 0);
+	reverseBitset(polynomials.encoded.codeword, 0);
+	reverseBitset(polynomials.received.codeword, 0);
 	if (errors_in_codeword) {
 		/*
 		 Compute the error location polynomial via the Berlekamp
@@ -355,7 +223,7 @@ status decodeBch(
 						bch_logger.log("\nIncomplete decoding: errors detected (err_loc out of bound: err_loc = ", err_loc, ")\n");
 						// we can skip this thanks to union
 						// polynomials.decoded.data = (std::bitset<bch_class::k_>)Decoded_Codeword.to_string().substr(0, bch_class::k_);
-						bch::reverseBitset(polynomials.decoded.codeword, 0);
+						reverseBitset(polynomials.decoded.codeword, 0);
 						return FAIL;
 					} else {
 						polynomials.decoded.codeword.flip(err_loc);
@@ -365,14 +233,14 @@ status decodeBch(
 				bch_logger.log("\nIncomplete decoding: errors detected (elp has degree > bch_class::t_)\n");
 				// we can skip this thanks to union
 				// polynomials.decoded.data = (std::bitset<bch_class::k_>)Decoded_Codeword.to_string().substr(0, bch_class::k_);
-				bch::reverseBitset(polynomials.decoded.codeword, 0);
+				reverseBitset(polynomials.decoded.codeword, 0);
 				return FAIL;
 			}
 		} else {
 			bch_logger.log("\nIncomplete decoding: errors detected (l[u] > bch_class::t_: l[u] = ", l[u], ")\n");
 			// we can skip this thanks to union
 			// polynomials.decoded.data = (std::bitset<bch_class::k_>)Decoded_Codeword.to_string().substr(0, bch_class::k_);
-			bch::reverseBitset(polynomials.decoded.codeword, 0);
+			reverseBitset(polynomials.decoded.codeword, 0);
 			return FAIL;
 		}
 	} else {
@@ -380,74 +248,19 @@ status decodeBch(
 	}
 	// we can skip this thanks to union
 	// polynomials.decoded.data = (std::bitset<bch_class::k_>)Decoded_Codeword.to_string().substr(0, bch_class::k_);
-	bch::reverseBitset(polynomials.decoded.codeword, 0);
+	reverseBitset(polynomials.decoded.codeword, 0);
 	return SUCCESS;
-}
-
-template<size_t X>
-void bch::reverseBitset(
-		std::bitset <X> &Polynomial, 
-		int Shift)
-{
-    for(size_t i = 0; i < X/2; ++i) {
-    	bool temp_bit = Polynomial[i];
-    	Polynomial[i] = Polynomial[X-i-1];
-    	Polynomial[X-i-1] = temp_bit;
-    }
-	Polynomial >>= Shift;
-}
-
-template<size_t X>
-std::bitset <X> bch::tempReverseBitset(
-		std::bitset <X> Polynomial, 
-		int Shift)
-{
-    for(size_t i = 0; i < X/2; ++i) {
-    	bool temp_bit = Polynomial[i];
-    	Polynomial[i] = Polynomial[X-i-1];
-    	Polynomial[X-i-1] = temp_bit;
-    }
-	return (Polynomial >>= Shift);
-}
-
-template <size_t X>
-std::pair<std::bitset <X>, std::bitset <X>> bch::divideBitsetPolynomials(
-		const std::bitset <X> &dividend, 
-		const std::bitset <X> &divisor)
-{
-	std::bitset <X> quotient, remainder = dividend;
- 	while (bch::MSB(remainder) >= bch::MSB(divisor)) {
-		int shift = bch::MSB(remainder) - bch::MSB(divisor);
-		remainder ^= divisor << shift;
-		quotient.flip(shift); 
-	}
-	return {remainder, quotient};
-}
-
-int bch::multiplyIntPolynomials(
-		int mulitplicand, 
-		int multiplicator)
-{
-	int product = 0;
-	while (mulitplicand > 0) {
-		if (mulitplicand & 1) {
-			product ^= multiplicator;
-		}
-		multiplicator <<= 1;
-		mulitplicand >>= 1;
-	}
-	return product;
 }
 
 template<class bch_class>
 void compareAndPrintCodewords(
 		const polynomialData<bch_class::n_, bch_class::k_>& polynomials)
 {	
-	bch_logger.log("c(x) = ", bch::tempReverseBitset(polynomials.encoded.codeword, 0), "\n");
-	bch_logger.log("r(x) = ", bch::tempReverseBitset(polynomials.received.codeword, 0), "\n");
+	bch_logger.log("c(x) = ", tempReverseBitset(polynomials.encoded.codeword, 0), "\n");
+	bch_logger.log("r(x) = ", tempReverseBitset(polynomials.received.codeword, 0), "\n");
 
 	std::bitset <bch_class::n_> bit_difference = polynomials.encoded.codeword ^ polynomials.received.codeword;
-	bch::reverseBitset(bit_difference, 0);
+	reverseBitset(bit_difference, 0);
 
 	if (bit_difference.count() != 0) {
 		if (bch_logger.enable_logging_) {
@@ -503,27 +316,6 @@ void introduceErrors(
 	}
 }
 
-void printHelpMessage(
-		const char *file_name)
-{
-	std::cout << "Usage:\n"
-		<< file_name << " [-h] -i image -p err_prob -c code_type [-v]\n\n"
-		<< "Options:\n"
-		<< "  -i image			Choose one image from images folder, example: images/image2.bmp.\n"
-		<< "  -p err_prob		Give probability between (10 and 10000000) that a 1 in err_prob error will occur in \n"
-		<< "			   			the codeword during a simulated transmission through a noisy medium, example: 1000.\n"
-		<< "  -c code_type		Choose bch code type:\n"
-		<< "						0 - BCH6351\n"
-		<< "						1 - BCH6345\n"
-		<< "						2 - BCH4836\n"
-		<< "						3 - BCH4830\n"
-		<< "Optional arguments:\n"
-		<< "  -h	Show this help message.\n"
-		<< "  -v	Enable verbose_flag encoding and decoding logs which will print out the whole process to the \n"
-		<< "	   terminal, is disabled by default. WARNING! This option causes the threads to run sequentially instead \n"
-		<< " 	   of in parallel which combined with printing operations to console causes a severe performance degradation.\n";
-}
-
 void beginMainProcess(
 		std::vector<bchType>& objs,
 		const int thread_id, 
@@ -549,20 +341,20 @@ void beginMainProcess(
 		}
 
 		std::visit([&](auto& obj) -> void {
-				using current_class = CVBC<decltype(obj.get())>;
+			using current_class = CVBC<decltype(obj.get())>;
 
-				encodeBch<current_class>(obj->codeword_polynomials_, bch::bch_math<current_class::n_>);
+			encodeBch<current_class>(obj->codeword_polynomials_, bch::bch_math<current_class::n_>);
 
-				introduceErrors<current_class>(obj->codeword_polynomials_);
+			introduceErrors<current_class>(obj->codeword_polynomials_);
 
-				compareAndPrintCodewords<current_class>(obj->codeword_polynomials_);
+			compareAndPrintCodewords<current_class>(obj->codeword_polynomials_);
 
-				if (status st = decodeBch<current_class>(obj->codeword_polynomials_, bch::bch_math<current_class::n_>); st == SUCCESS) {
-					compareAndPrintData<current_class>(obj->codeword_polynomials_);
-					counters.success_count++;
-				} else {
-					counters.failure_count++;
-				}
+			if (status st = decodeBch<current_class>(obj->codeword_polynomials_, bch::bch_math<current_class::n_>); st == SUCCESS) {
+				compareAndPrintData<current_class>(obj->codeword_polynomials_);
+				counters.success_count++;
+			} else {
+				counters.failure_count++;
+			}
 		}, objs[i]);
 
 		bch_logger.log(LINE, " Worker ", thread_id," STOP *", LINE, "\n\n");
@@ -570,7 +362,6 @@ void beginMainProcess(
 	if (bch_logger.enable_logging_) { bch::Mutex.unlock(); }
 }
 
-// DONE
 template<class bch_class>
 void populateVectorOfMessagePolynomials(
 		const unsigned char* str, 
@@ -600,8 +391,7 @@ void populateVectorOfMessagePolynomials(
 template<class bch_class>
 void populateUnsignedCharVectors(
 		const std::vector<bchType>& objs,
-		const threadZones& zones,
-		const unsigned char* buffer)
+		const threadZones& zones)
 {	
 	int it = zones.MPTG_end;
 	int bit_pos = zones.bit_pos;
@@ -637,12 +427,41 @@ void populateUnsignedCharVectors(
 		}
 	}
 }
-// DONE
+
+std::string bchFirstInit()
+{
+	switch (bch::code_type) {
+		case (BCH6351):
+			// initialize temp obj so that we can use visit for variant in later function
+			bch::BCH_objects.push_back(std::make_unique<Bch6351>(0b0));
+			return "BCH6351.bmp";
+		case (BCH6345):
+			bch::BCH_objects.push_back(std::make_unique<Bch6345>(0b0));
+			return "BCH6345.bmp";
+		case (BCH4836):
+			bch::BCH_objects.push_back(std::make_unique<Bch4836>(0b0));
+			return "BCH4836.bmp";
+		case (BCH4830):
+			bch::BCH_objects.push_back(std::make_unique<Bch4830>(0b0));
+			return "BCH4830.bmp";
+		default:
+			return NULL;
+	}
+}
+
+template<class bch_class>
+void initializeBchMathStruct() 
+{	
+	bch::bch_math<bch_class::n_> = new mathHelper<bch_class::n_>;
+	readPrimitivePolynomial<bch_class>(bch::bch_math<bch_class::n_>);
+	generateGaloisField<bch_class>(bch::bch_math<bch_class::n_>); 
+	generateGeneratorPolynomial<bch_class>(bch::bch_math<bch_class::n_>);
+}
+
 int parse_arguments(
 		const int argc, 
 		char* argv[])
 {
-
 	int fd = FAIL;
 	int c;
 
@@ -688,36 +507,6 @@ int parse_arguments(
 		}
 	}
 	return fd;
-} 
-
-std::string bchFirstInit()
-{
-	switch (bch::code_type) {
-		case (BCH6351):
-			// initialize temp obj so that we can use visit for variant in later function
-			bch::BCH_objects.push_back(std::move(std::make_unique<Bch6351>(0b0)));
-			return "BCH6351.bmp";
-		case (BCH6345):
-			bch::BCH_objects.push_back(std::move(std::make_unique<Bch6345>(0b0)));
-			return "BCH6345.bmp";
-		case (BCH4836):
-			bch::BCH_objects.push_back(std::move(std::make_unique<Bch4836>(0b0)));
-			return "BCH4836.bmp";
-		case (BCH4830):
-			bch::BCH_objects.push_back(std::move(std::make_unique<Bch4830>(0b0)));
-			return "BCH4830.bmp";
-		default:
-			return NULL;
-	}
-}
-
-template<class bch_class>
-void initializeBchMathStruct() 
-{	
-	bch::bch_math<bch_class::n_> = new mathHelper<bch_class::n_>;
-	readPrimitivePolynomial<bch_class>(bch::bch_math<bch_class::n_>);
-	generateGaloisField<bch_class>(bch::bch_math<bch_class::n_>); 
-	generateGeneratorPolynomial<bch_class>(bch::bch_math<bch_class::n_>);
 }
 
 int main(
@@ -901,7 +690,7 @@ int main(
 
 		std::visit([&](const auto& obj) -> void {
 			using current_class = CVBC<decltype(obj.get())>;
-			threads.push_back(std::thread(populateUnsignedCharVectors<current_class>,  std::ref(bch::BCH_objects), zones, buffer));
+			threads.push_back(std::thread(populateUnsignedCharVectors<current_class>,  std::ref(bch::BCH_objects), zones));
 		}, bch::BCH_objects[0]);
 
 	}
