@@ -1,7 +1,5 @@
-// #ifndef BCH_UTILS_HPP
-// #define BCH_UTILS_HPP
-
-#pragma once
+#ifndef BCH_UTILS_HPP
+#define BCH_UTILS_HPP
 
 #include <iostream>
 #include <bit>
@@ -34,7 +32,6 @@ struct globalCounters {
     std::atomic<int> uncaught_errors_count{0};
 };
 
-
 struct threadZones {
 	// MESSAGE_BYTES_THREAD_GROUP beginning
 	ssize_t MBTG_beginning;
@@ -45,8 +42,9 @@ struct threadZones {
 	// MESSAGE_POLYNOMIALS_THREAD_GROUP end
 	ssize_t MPTG_end;
 	int bit_pos;
+	int old_bit_pos;
+	int overlaping_message_polynomial;
 };
-
 
 namespace bch {
     extern int error_probability;
@@ -78,9 +76,9 @@ void verbosePolynomial(
 			}
 			if (i!=0) {
 				if (i == 1) {
-					std::cout << "N";
+					std::cout << "x";
 				} else {
-				std::cout << "N^" << i;
+				std::cout << "x^" << i;
 				}
 			} else {
 				std::cout << "1";
@@ -132,4 +130,4 @@ std::pair<std::bitset <N>, std::bitset <N>> divideBitsetPolynomials(
 
 void printHelpMessage(const char *file_name);
 
-// #endif /* BCH_UTILS_HPP */
+#endif /* BCH_UTILS_HPP */

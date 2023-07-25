@@ -1,7 +1,5 @@
-// #ifndef BCH_MAIN_HPP
-// #define BCH_MAIN_HPP
-
-#pragma once
+#ifndef BCH_SIMULATOR_HPP
+#define BCH_SIMULATOR_HPP
 
 #include <any>
 #include <bit>
@@ -23,7 +21,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#define HEADER_BYTES 30
+#define RESERVED_BYTES 54
 
 template <size_t N, size_t K>
 struct polynomialData{
@@ -49,7 +47,7 @@ class Bch6351 {
         static constexpr ssize_t n_ = 63;
         static constexpr ssize_t k_ = 51;
         static constexpr ssize_t t_ = (n_ - k_) / 6;
-        explicit Bch6351 (const std::bitset <k_> &data) {
+        explicit Bch6351 (const std::bitset <k_>& data) {
             codeword_polynomials_.encoded.data = data;
         }
         static std::vector <std::bitset <k_>> vector_of_message_polynomials;
@@ -61,7 +59,7 @@ class Bch6345 {
         static constexpr ssize_t n_ = 63;
         static constexpr ssize_t k_ = 45;
         static constexpr ssize_t t_ = (n_ - k_) / 6;
-        explicit Bch6345(const std::bitset <k_> &data) {
+        explicit Bch6345(const std::bitset <k_>& data) {
             codeword_polynomials_.encoded.data = data;
         }
         static std::vector <std::bitset <k_>> vector_of_message_polynomials;
@@ -73,7 +71,7 @@ class Bch4836 {
         static constexpr ssize_t n_ = 48;
         static constexpr ssize_t k_ = 36;
         static constexpr ssize_t t_ = (n_ - k_) / 6;
-        explicit Bch4836(const std::bitset <k_> &data) {
+        explicit Bch4836(const std::bitset <k_>& data) {
             codeword_polynomials_.encoded.data = data;
         }
         static std::vector <std::bitset <k_>> vector_of_message_polynomials;
@@ -85,7 +83,7 @@ class Bch4830{
         static constexpr ssize_t n_ = 48;
         static constexpr ssize_t k_ = 30;
         static constexpr ssize_t t_ = (n_ - k_) / 6;
-        explicit Bch4830(const std::bitset <k_> &data) {
+        explicit Bch4830(const std::bitset <k_>& data) {
             codeword_polynomials_.encoded.data = data;
         }
         static std::vector <std::bitset <k_>> vector_of_message_polynomials;
@@ -98,8 +96,8 @@ using bchType = std::variant<std::unique_ptr<Bch6351>, std::unique_ptr<Bch6345>,
 namespace bch {
     // the big dawg
     std::vector <bchType> BCH_objects;
-    std::vector <unsigned char> recovered_charstream;
-    std::vector <unsigned char> modified_charstream;
+    std::vector <unsigned char> decoded_charstream;
+    std::vector <unsigned char> received_charstream;
 };
 
-// #endif /* BCH_MAIN_HPP */
+#endif /* BCH_SIMULATOR_HPP */

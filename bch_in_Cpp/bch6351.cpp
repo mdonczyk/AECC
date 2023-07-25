@@ -3,13 +3,8 @@
 #include "bch_utils.hpp"
 #include "bch_math.hpp"
 
-// use overload pattern here
-// template<typename... Ts> struct overload : public Ts... { using Ts::operator()...; };
-// template<class... Ts> overload(Ts...) -> overload<Ts...>;
-
 using bchType = std::variant<std::unique_ptr<Bch6351>, std::unique_ptr<Bch6345>, 
                              std::unique_ptr<Bch4836>, std::unique_ptr<Bch4830>>;
-
 
 template<typename T>
 // (CURRENT VARIANT BCH CLASS) Alias for getting the actual type of the Bch code type class used in variant
@@ -22,6 +17,33 @@ std::vector<std::bitset <Bch4830::k_>> Bch4830::vector_of_message_polynomials;
 
 static BchLogger bch_logger;
 static globalCounters counters{};
+
+template<class bch_class>
+void populateVectorOfMessagePolynomials(
+		const unsigned char* buffer, 
+		const threadZones& zones,
+		std::vector<std::bitset<bch_class::k_>>& vector_of_message_polynomials)
+{	
+	std::bitset<bch_class::k_> temp_bitset;
+	int data_bitset_iterator = zones.MPTG_end;
+	int bit_pos = zones.bit_pos;
+	for (int i = zones.MBTG_beginning; i < zones.MBTG_end; i++) {
+		for (int j = 0; j < 8; ++j) {
+			temp_bitset[bit_pos] = buffer[i] & (1 << j);
+			bit_pos++;
+			if (bit_pos == bch_class::k_) {
+				vector_of_message_polynomials[data_bitset_iterator] ^= temp_bitset;
+				data_bitset_iterator++;
+				temp_bitset.reset();
+				bit_pos = 0;
+			}
+		}
+	}
+	if (bit_pos != 0) {
+		vector_of_message_polynomials[data_bitset_iterator] ^= temp_bitset;
+	}
+}
+
 
 template<class bch_class>
 void encodeBch(
@@ -66,6 +88,48 @@ std::vector <int> calculateSyndromes(
 }
 
 template<class bch_class>
+void introduceErrors(
+		polynomialData<bch_class::n_, bch_class::k_>& polynomials) 
+{
+	polynomials.received.codeword = polynomials.encoded.codeword;
+	std::random_device rd;
+	std::mt19937 gen (rd());
+	std::uniform_int_distribution<> d (0, bch::error_probability);
+	for (int i = 0; i < bch_class::n_; i++) {
+		int randnum = d(gen);
+		if (randnum == 0) {
+			counters.introduced_errors_count ++;
+			polynomials.received.codeword.flip(i);
+		}
+	}
+}
+
+template<class bch_class>
+void compareAndPrintCodewords(
+		const polynomialData<bch_class::n_, bch_class::k_>& polynomials)
+{	
+	bch_logger.log("c(x) = ", tempReverseBitset(polynomials.encoded.codeword, 0), "\n");
+	bch_logger.log("r(x) = ", tempReverseBitset(polynomials.received.codeword, 0), "\n");
+
+	std::bitset <bch_class::n_> bit_difference = polynomials.encoded.codeword ^ polynomials.received.codeword;
+	reverseBitset(bit_difference, 0);
+
+	if (bit_difference.count() != 0) {
+		if (bch_logger.enable_logging_) {
+			bch_logger.log("       ", (bit_difference.to_string(' ','^')), "\n");
+			bch_logger.log("Position of ", bit_difference.count());
+			bit_difference.count() == 1? bch_logger.log(" error "): bch_logger.log(" errors ");
+			bch_logger.log("in the received codeword at ^.\n");
+		}
+		if (bit_difference.count() > static_cast<unsigned>(bch_class::t_)) {
+			counters.big_errors_count++;
+		}
+	} else {
+		bch_logger.log("No errors in the received codeword.\n");
+	}
+}
+
+template<class bch_class>
 status decodeBch(
 		polynomialData<bch_class::n_, bch_class::k_>& polynomials,
 		const mathHelper<bch_class::n_>* bch_math) 
@@ -95,10 +159,13 @@ status decodeBch(
 	bool errors_in_codeword = false;
 	std::vector <int> syndromes = calculateSyndromes<bch_class>(polynomials, bch_math, errors_in_codeword);
 	polynomials.decoded.codeword = polynomials.received.codeword;
-
-	// get them back to normal:
+	
+	// reverse bitsets back to normal and shift data to the right:
 	reverseBitset(polynomials.encoded.codeword, 0);
 	reverseBitset(polynomials.received.codeword, 0);
+	polynomials.encoded.codeword >>= bch_class::n_ - bch_class::k_;
+	polynomials.received.codeword >>= bch_class::n_ - bch_class::k_;
+
 	if (errors_in_codeword) {
 		/*
 		 Compute the error location polynomial via the Berlekamp
@@ -216,65 +283,34 @@ status decodeBch(
 			}
 			bch_logger.log("\n");
 			if (error_locations.size() == static_cast<unsigned>(l[u])) {
-			// no. roots = degree of elp hence <= bch_class::t_ errors
 				for (auto const &error_location : error_locations) {
 					auto err_loc = (bch_class::n_-1-error_location + bch_class::n_) % bch_class::n_;
-					if (err_loc < 0 || err_loc >= bch_class::n_) {
-						bch_logger.log("\nIncomplete decoding: errors detected (err_loc out of bound: err_loc = ", err_loc, ")\n");
-						// we can skip this thanks to union
-						// polynomials.decoded.data = (std::bitset<bch_class::k_>)Decoded_Codeword.to_string().substr(0, bch_class::k_);
-						reverseBitset(polynomials.decoded.codeword, 0);
-						return FAIL;
-					} else {
+					if (err_loc >= 0 && err_loc < bch_class::n_) {
 						polynomials.decoded.codeword.flip(err_loc);
+					} else {
+						bch_logger.log("\nIncomplete decoding: errors detected (err_loc out of bound: err_loc = ", err_loc, ")\n");
+						goto decode_error;
 					}
 				}
-			} else {// elp has degree > bch_class::t_ hence cannot solve
+			} else {
 				bch_logger.log("\nIncomplete decoding: errors detected (elp has degree > bch_class::t_)\n");
-				// we can skip this thanks to union
-				// polynomials.decoded.data = (std::bitset<bch_class::k_>)Decoded_Codeword.to_string().substr(0, bch_class::k_);
-				reverseBitset(polynomials.decoded.codeword, 0);
-				return FAIL;
+				goto decode_error;
 			}
 		} else {
 			bch_logger.log("\nIncomplete decoding: errors detected (l[u] > bch_class::t_: l[u] = ", l[u], ")\n");
-			// we can skip this thanks to union
-			// polynomials.decoded.data = (std::bitset<bch_class::k_>)Decoded_Codeword.to_string().substr(0, bch_class::k_);
-			reverseBitset(polynomials.decoded.codeword, 0);
-			return FAIL;
+			goto decode_error;
 		}
 	} else {
 		bch_logger.log("No errors found\n");
 	}
-	// we can skip this thanks to union
-	// polynomials.decoded.data = (std::bitset<bch_class::k_>)Decoded_Codeword.to_string().substr(0, bch_class::k_);
 	reverseBitset(polynomials.decoded.codeword, 0);
+	polynomials.decoded.codeword >>= bch_class::n_ - bch_class::k_;
 	return SUCCESS;
-}
 
-template<class bch_class>
-void compareAndPrintCodewords(
-		const polynomialData<bch_class::n_, bch_class::k_>& polynomials)
-{	
-	bch_logger.log("c(x) = ", tempReverseBitset(polynomials.encoded.codeword, 0), "\n");
-	bch_logger.log("r(x) = ", tempReverseBitset(polynomials.received.codeword, 0), "\n");
-
-	std::bitset <bch_class::n_> bit_difference = polynomials.encoded.codeword ^ polynomials.received.codeword;
-	reverseBitset(bit_difference, 0);
-
-	if (bit_difference.count() != 0) {
-		if (bch_logger.enable_logging_) {
-			bch_logger.log("       ", (bit_difference.to_string(' ','^')), "\n");
-			bch_logger.log("Position of ", bit_difference.count());
-			bit_difference.count() == 1? bch_logger.log(" error "): bch_logger.log(" errors ");
-			bch_logger.log("in the received codeword at ^.\n");
-		}
-		if (bit_difference.count() > static_cast<unsigned>(bch_class::t_)) {
-			counters.big_errors_count++;
-		}
-	} else {
-		bch_logger.log("No errors in the received codeword.\n");
-	}
+	decode_error:
+		reverseBitset(polynomials.decoded.codeword, 0);
+		polynomials.decoded.codeword >>= bch_class::n_ - bch_class::k_;
+		return FAIL;
 }
 
 template<class bch_class>
@@ -299,30 +335,13 @@ void compareAndPrintData(
 	}
 }
 
-template<class bch_class>
-void introduceErrors(
-		polynomialData<bch_class::n_, bch_class::k_>& polynomials) 
-{
-	polynomials.received.codeword = polynomials.encoded.codeword;
-	std::random_device rd;
-	std::mt19937 gen (rd());
-	std::uniform_int_distribution<> d (0, bch::error_probability);
-	for (int i = 0; i < bch_class::n_; i++) {
-		int randnum = d(gen);
-		if (randnum == 0) {
-			counters.introduced_errors_count ++;
-			polynomials.received.codeword.flip(i);
-		}
-	}
-}
-
 void beginMainProcess(
 		std::vector<bchType>& objs,
 		const int thread_id, 
-		const threadZones& zone)
+		const threadZones& zones)
 {	
 	if (bch_logger.enable_logging_) { bch::Mutex.lock(); }
-	for (int i = zone.MPTG_beginning; i < zone.MPTG_end; i++) {
+	for (int i = zones.MPTG_beginning; i < zones.MPTG_end; i++) {
 		bch_logger.log(LINE, " Worker ", thread_id," START ", LINE);
 
 		switch (bch::code_type) {
@@ -363,64 +382,30 @@ void beginMainProcess(
 }
 
 template<class bch_class>
-void populateVectorOfMessagePolynomials(
-		const unsigned char* str, 
-		const threadZones& zones,
-		std::vector<std::bitset<bch_class::k_>>& vector_of_message_polynomials)
-{	
-	std::bitset<bch_class::k_> temp_bitset;
-	int it = zones.MPTG_end;
-	int bit_pos = zones.bit_pos;
-	for (int i = zones.MBTG_beginning; i < zones.MBTG_end; i++) {
-		for (int j = 0; j < 8; ++j) {
-			temp_bitset[bit_pos] = str[i] & (1 << j);
-			bit_pos++;
-			if (bit_pos == bch_class::k_) {
-				vector_of_message_polynomials[it] ^= temp_bitset;
-				it++;
-				temp_bitset.reset();
-				bit_pos = 0;
-			}
-		}
-	}
-	if (zones.bit_pos != 0) {
-		vector_of_message_polynomials[it] ^= temp_bitset;
-	}
-}
-
-template<class bch_class>
 void populateUnsignedCharVectors(
 		const std::vector<bchType>& objs,
 		const threadZones& zones)
 {	
-	int it = zones.MPTG_end;
+	int data_bitset_iterator = zones.MPTG_end;
 	int bit_pos = zones.bit_pos;
 
 	auto temp_poly = std::visit(
 		[=](auto& obj) {
-			using current_class = CVBC<decltype(obj.get())>;
-			// becasuse in decodeBch we reversed it back to normal we need to move the data to the right 
-			// so that the data bitset in union can read correct values
-			obj->codeword_polynomials_.received.codeword >>= (current_class::n_ - current_class::k_);
-			obj->codeword_polynomials_.decoded.codeword >>= (current_class::n_ - current_class::k_);
 			return std::any(obj->codeword_polynomials_);
-		}, objs[it]);
+		}, objs[data_bitset_iterator]);
 	auto polynomials = std::any_cast<polynomialData<bch_class::n_, bch_class::k_>>(temp_poly);
 
 	for (int i = zones.MBTG_beginning; i < zones.MBTG_end; i++) {
-		for (int j = 0; j < 8; ++j) {
-			bch::modified_charstream[i] ^= polynomials.received.data[bit_pos] << j;
-			bch::recovered_charstream[i] ^= polynomials.decoded.data[bit_pos] << j;
+		for (int j = 0; j < 8; j++) {
+			bch::received_charstream[i] ^= polynomials.received.data[bit_pos] << j;
+			bch::decoded_charstream[i] ^= polynomials.decoded.data[bit_pos] << j;
 			bit_pos++;
 			if (bit_pos == bch_class::k_) {
-				it++;
+				data_bitset_iterator++;
 				temp_poly = std::visit(
 					[=](auto& obj) {
-						using current_class = CVBC<decltype(obj.get())>;
-						obj->codeword_polynomials_.received.codeword >>= (current_class::n_ - current_class::k_);
-						obj->codeword_polynomials_.decoded.codeword >>= (current_class::n_ - current_class::k_);
 						return std::any(obj->codeword_polynomials_);
-					}, objs[it]);
+					}, objs[data_bitset_iterator]);
 				polynomials = std::any_cast<polynomialData<bch_class::n_, bch_class::k_>>(temp_poly);
 				bit_pos = 0;
 			}
@@ -561,8 +546,8 @@ int main(
 		return NUMBER_OF_MESSAGE_POLYNOMIALS;
 	}, bch::BCH_objects[0]);
 	bch::BCH_objects.resize(NUMBER_OF_MESSAGE_POLYNOMIALS);
-	bch::recovered_charstream.resize(FILE_BYTE_SIZE);
-	bch::modified_charstream.resize(FILE_BYTE_SIZE);
+	bch::decoded_charstream.resize(FILE_BYTE_SIZE);
+	bch::received_charstream.resize(FILE_BYTE_SIZE);
 
 	std::vector<std::thread> threads;
 	const int NUM_THREADS = std::thread::hardware_concurrency();
@@ -574,13 +559,10 @@ int main(
 													NUMBER_OF_MESSAGE_POLYNOMIALS/NUM_THREADS - 1;
 
 	// MESSAGE_BYTES_THREAD_GROUP --> count of group of message bytes that will be used by a single thread
-	const int MESSAGE_BYTES_THREAD_GROUP = FILE_BYTE_SIZE / NUM_THREADS;
+	const int MESSAGE_BYTES_THREAD_GROUP = FILE_BYTE_SIZE/NUM_THREADS;
 
 	std::cout << "Parsing image file..." << std::endl;
 	auto start = std::chrono::high_resolution_clock::now();
-
-	int old_bit_pos{0};
-	int overlaping_message_polynomial{0};
 
 	threadZones zones{};
 
@@ -597,13 +579,13 @@ int main(
 			zones.MBTG_end = FILE_BYTE_SIZE;
 		}
 
-		if (zones.bit_pos < old_bit_pos) {
-			overlaping_message_polynomial++;
+		if (zones.bit_pos < zones.old_bit_pos) {
+			zones.overlaping_message_polynomial++;
 		}
 
-		zones.MPTG_end = MESSAGE_POLYNOMIALS_THREAD_GROUP*thread_id + overlaping_message_polynomial;
+		zones.MPTG_end = MESSAGE_POLYNOMIALS_THREAD_GROUP*thread_id + zones.overlaping_message_polynomial;
 
-		old_bit_pos = zones.bit_pos;
+		zones.old_bit_pos = zones.bit_pos;
 
 		std::visit([&](const auto& obj){
 			using current_class = CVBC<decltype(obj.get())>;
@@ -637,6 +619,8 @@ int main(
 
 	bch_logger.log("Please be patient, starting coding and decoding process...\n");
 
+	zones = {};
+
 	for (int thread_id = 0; thread_id < NUM_THREADS; thread_id++) {
 		zones.MPTG_beginning = MESSAGE_POLYNOMIALS_THREAD_GROUP*thread_id;
 		zones.MPTG_end = MESSAGE_POLYNOMIALS_THREAD_GROUP*(thread_id + 1);
@@ -666,8 +650,7 @@ int main(
 
 	threads.clear();
 
-	old_bit_pos = 0;
-	overlaping_message_polynomial = 0;
+	zones = {};
 
 	for (int thread_id = 0; thread_id < NUM_THREADS; thread_id++) {
 		zones.MBTG_beginning = MESSAGE_BYTES_THREAD_GROUP*thread_id;
@@ -682,11 +665,11 @@ int main(
 			zones.bit_pos = (zones.MBTG_beginning*8) % current_class::k_;
 		}, bch::BCH_objects[0]);
 
-		if (zones.bit_pos < old_bit_pos) { overlaping_message_polynomial++; }
+		if (zones.bit_pos < zones.old_bit_pos) { zones.overlaping_message_polynomial++; }
 
-		zones.MPTG_end = MESSAGE_POLYNOMIALS_THREAD_GROUP*thread_id + overlaping_message_polynomial;
+		zones.MPTG_end = MESSAGE_POLYNOMIALS_THREAD_GROUP*thread_id + zones.overlaping_message_polynomial;
 
-		old_bit_pos = zones.bit_pos;
+		zones.old_bit_pos = zones.bit_pos;
 
 		std::visit([&](const auto& obj) -> void {
 			using current_class = CVBC<decltype(obj.get())>;
@@ -707,15 +690,31 @@ int main(
 	std::cout << std::to_string(duration.count()).substr(0, std::to_string(duration.count()).length()-3) << " seconds" << std::endl;
 
 	// write bytes to new files and get diff
-	for (int i = 0; i < HEADER_BYTES; i++) {
+	for (int i = 0; i < RESERVED_BYTES; i++) {
 		image_with_errors << buffer[i];
 		image_fixed << buffer[i];
 	}
 
-	for (ssize_t i = HEADER_BYTES; i < FILE_BYTE_SIZE; i++) {
-		image_with_errors << bch::modified_charstream[i];
-		image_fixed << bch::recovered_charstream[i];
+	for (ssize_t i = RESERVED_BYTES; i < FILE_BYTE_SIZE; i++) {
+		image_with_errors << bch::received_charstream[i];
+		image_fixed << bch::decoded_charstream[i];
 	}
+
+	// std::cout<< bch::received_charstream.size() << " " << bch::decoded_charstream.size() << std::endl;
+	// size_t meh_diff = 0;
+	// for (unsigned int i = 0; i < bch::received_charstream.size(); i++){
+	// 	meh_diff += (bch::received_charstream[i] != bch::decoded_charstream[i]);
+	// }
+	// std::cout << "meh_diff = " << meh_diff << std::endl;
+
+	// size_t diff = 0;
+	// for (unsigned int i=0; i < Bch4830::vector_of_message_polynomials.size(); i++) {
+	// 	std::visit([&](const auto& obj) {
+	// 		using current_class = CVBC<decltype(obj.get())>;
+	// 		diff += (current_class::vector_of_message_polynomials[i] ^ obj->codeword_polynomials_.encoded.data).count();
+	// 	}, bch::BCH_objects[i]);
+	// }
+	// std::cout << "diff = " << diff << std::endl;
 
 	size_t difference_count = 0;
 	// TODO: maybe ignore first HEADER_BYTES so that it is a fair comparison
@@ -740,8 +739,10 @@ int main(
 		table_row_separator();
 		table_items("Given error probability ", std::to_string(1/static_cast<float>(bch::error_probability)));
 		table_row_separator();
-		table_items("Real error probability ", std::to_string(1/static_cast<float>((NUMBER_OF_MESSAGE_POLYNOMIALS*current_class::n_)/counters.introduced_errors_count)));
-		table_row_separator();
+		if (counters.introduced_errors_count != 0) {
+			table_items("Real error probability ", std::to_string(1/static_cast<float>((NUMBER_OF_MESSAGE_POLYNOMIALS*current_class::n_)/counters.introduced_errors_count)));
+			table_row_separator();
+		}
 		table_items("Number of all data bits ", std::to_string(NUMBER_OF_MESSAGE_POLYNOMIALS * current_class::k_));
 		table_row_separator();
 		table_items("Number of all data + redundant bits ", std::to_string(NUMBER_OF_MESSAGE_POLYNOMIALS * current_class::n_));
@@ -777,7 +778,9 @@ int main(
 		BCH_logs_items("Code used ", "(" + std::to_string(current_class::n_) + "," + std::to_string(current_class::k_) + "," + std::to_string(current_class::t_*2+1 ) + ")");
 		BCH_logs_items("Original image used ", bch::filename);
 		BCH_logs_items("Given error probability ", std::to_string(1/static_cast<float>(bch::error_probability)));
-		BCH_logs_items("Real error probability ", std::to_string(1/static_cast<float>((NUMBER_OF_MESSAGE_POLYNOMIALS * current_class::n_)/counters.introduced_errors_count)));
+		if (counters.introduced_errors_count != 0) {
+			BCH_logs_items("Real error probability ", std::to_string(1/static_cast<float>((NUMBER_OF_MESSAGE_POLYNOMIALS * current_class::n_)/counters.introduced_errors_count)));
+		}
 		BCH_logs_items("Number of all data bits ", std::to_string(NUMBER_OF_MESSAGE_POLYNOMIALS * current_class::k_));
 		BCH_logs_items("Number of all data + redundant bits ", std::to_string(NUMBER_OF_MESSAGE_POLYNOMIALS * current_class::n_));
 		BCH_logs_items("Number of all generated errors ", std::to_string(counters.introduced_errors_count));

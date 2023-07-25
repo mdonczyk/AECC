@@ -1,7 +1,5 @@
-// #ifndef BCH_MATH_HPP
-// #define BCH_MATH_HPP
-
-#pragma once
+#ifndef BCH_MATH_HPP
+#define BCH_MATH_HPP
 
 #include <bitset>
 #include <vector>
@@ -127,4 +125,4 @@ void generateGeneratorPolynomial(
 	std::cout << "g(x) is " << bch_math->generator_polynomial_bitset.to_string().substr(bch_class::n_ - (bch_class::n_-bch_class::k_+1)) << std::endl;
 }
 
-// #endif /* BCH_MATH_HPP */
+#endif /* BCH_MATH_HPP */
