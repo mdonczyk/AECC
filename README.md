@@ -1,15 +1,10 @@
 # AECC
 ***The Art of Error Correcting Coding***
 
-BCH encoder and decoder written using modern C++17 features,
-multithreading, Object Oriented Programming and many good practices.
+BCH encoder and decoder written using modern C++17 features, multithreading, Object Oriented Programming and many good practices.
 
-This program simulates a bch encoded transmission through a noisy channel.
-It divides the given image into message polynomials which are then encoded
-and the errors are simulated with a given probability. They are afterwards decoded.
-After the whole process there is a table with the informations of the process and
-if you wish you can take a look at three pictures: the original image, image with errors
-and the image with errors fixed. Currently there are 4 BCH codes supported.
+This program simulates a bch encoded transmission through a noisy channel. It divides the given image into message polynomials which are then encodedand the errors are simulated with a given probability. They are afterwards decoded.\
+After the whole process there is a table with the informations of the process andif you wish you can take a look at three pictures: the original image, image with errorsand the image with errors fixed. Currently there are 4 BCH codes supported.
 
 
 
@@ -32,21 +27,21 @@ Optional arguments:
   -v    Enable bch_logger encoding and decoding logs which will print out the whole process to the
           terminal, is disabled by default. WARNING! This option causes the threads to run sequentially instead
           of in parallel which combined with printing operations to console causes a severe performance degradation.
-
+</pre>
 Example program output:
 
-./bch_simulator -i images/lenna.bmp -p 100 -c 3
-number of detected threads: 8
-Parsing image file...
-Parsing image file done and it took: 0.009 seconds
-Primitive polynomial:
-p(x) = x^6 + x^4 + x^3 + x + 1
-This is a (48,30,7) binary bch code
-g(x) is 1001010101000110011
-Coding and decoding process done and it took: 0.503 seconds
-Converting modified and recovered data from bitsets to bytes...
+_./bch_simulator -i images/lenna.bmp -p 100 -c 3_\
+number of detected threads: 8\
+Parsing image file...\
+Parsing image file done and it took: 0.009 seconds\
+Primitive polynomial:\
+p(x) = x^6 + x^4 + x^3 + x + 1\
+This is a (48,30,7) binary bch code\
+g(x) is 1001010101000110011\
+Coding and decoding process done and it took: 0.503 seconds\
+Converting modified and recovered data from bitsets to bytes...\
 Converting modified and recovered data from bitsets to bytes done and it took: 0.022 seconds
-
+<pre>
 +-----------------------------------------+-------------------+
 | Code used                               | (48,30,7)         |
 +-----------------------------------------+-------------------+
@@ -76,18 +71,20 @@ Converting modified and recovered data from bitsets to bytes done and it took: 0
 +-----------------------------------------+-------------------+
 | Encoding and decoding time              | 0.503 seconds     |
 +-----------------------------------------+-------------------+
-
+</pre>
 Results have been written to BCH_logs.txt file
 
 To view made images on linux use "feh -F -Z --force-aliasing -d images/lenna.bmp images/lenna_with_errors_BCH4830.bmp images/lenna_fixed_BCH4830.bmp"
 
-![Original image](images/lenna.bmp)
+
+## Original Image
+<img src="images/lenna.bmp" width="500" height="500" alt="Original Image"/>
+
+## Image with introduced errors
+<img src="images/lenna_with_errors_BCH4830.bmp" width="500" height="500" alt="Image with introduced errors"/>
+
+## Recovered Image
+<img src="images/lenna_fixed_BCH4830.bmp" width="500" height="500" alt="Recovered Image"/>
 
 
-![Image with introduced errors](images/lenna_with_errors_BCH4830.bmp)
-
-
-![Recovered Image](images/lenna_fixed_BCH4830.bmp)
-
-</pre>
-inspiration: http://the-art-of-ecc.com
+**Inspiration:** http://the-art-of-ecc.com
