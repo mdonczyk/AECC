@@ -1,5 +1,5 @@
 .vscode
 build
-image*_*
+images/
 BCH_logs.txt
 

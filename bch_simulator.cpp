@@ -617,7 +617,7 @@ int main(
 
 	threads.clear();
 
-	bch_logger.log("Please be patient, starting coding and decoding process...\n");
+	std::cout<<"Please be patient, starting coding and decoding process...\n";
 
 	zones = {};
 

@@ -31,16 +31,17 @@ Optional arguments:
 Example program output:
 
 _./bch_simulator -i images/lenna.bmp -p 100 -c 3_\
-number of detected threads: 8\
+number of detected threads: 16\
 Parsing image file...\
-Parsing image file done and it took: 0.009 seconds\
+Parsing image file done and it took: 0.000 seconds\
 Primitive polynomial:\
 p(x) = x^6 + x^4 + x^3 + x + 1\
 This is a (48,30,7) binary bch code\
 g(x) is 1001010101000110011\
-Coding and decoding process done and it took: 0.503 seconds\
+Coding and decoding process done and it took: 0.033 seconds\
 Converting modified and recovered data from bitsets to bytes...\
-Converting modified and recovered data from bitsets to bytes done and it took: 0.022 seconds
+Converting modified and recovered data from bitsets to bytes done and it took: 0.000 seconds
+
 <pre>
 +-----------------------------------------+-------------------+
 | Code used                               | (48,30,7)         |
@@ -55,23 +56,24 @@ Converting modified and recovered data from bitsets to bytes done and it took: 0
 +-----------------------------------------+-------------------+
 | Number of all data + redundant bits     | 3201600           |
 +-----------------------------------------+-------------------+
-| Number of all introduced errors         | 31725             |
+| Number of all introduced errors         | 31829             |
 +-----------------------------------------+-------------------+
 | Number of all message polynomials       | 66700             |
 +-----------------------------------------+-------------------+
-| Number of successful decodings          | 66611             |
+| Number of successful decodings          | 66612             |
 +-----------------------------------------+-------------------+
-| Number of decoding errors               | 89                |
+| Number of decoding errors               | 88                |
 +-----------------------------------------+-------------------+
-| Number of uncaught decoding errors      | 19                |
+| Number of uncaught decoding errors      | 18                |
 +-----------------------------------------+-------------------+
-| Number of over t errors in codewords    | 80                |
+| Number of over t errors in codewords    | 83                |
 +-----------------------------------------+-------------------+
-| Final data bits difference              | 283               |
+| Final data bits difference              | 293               |
 +-----------------------------------------+-------------------+
-| Encoding and decoding time              | 0.503 seconds     |
+| Encoding and decoding time              | 0.033 seconds     |
 +-----------------------------------------+-------------------+
 </pre>
+
 Results have been written to BCH_logs.txt file
 
 To view made images on linux use "feh -F -Z --force-aliasing -d images/lenna.bmp images/lenna_with_errors_BCH4830.bmp images/lenna_fixed_BCH4830.bmp"
