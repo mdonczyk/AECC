@@ -1,19 +1,15 @@
-# AECC
-***The Art of Error Correcting Coding***
+<pre>
+Usage example for bch6351 program:
 
-## *bch_in_C file*
-This file contains mostly not changed C code from the site:
-http://the-art-of-ecc.com
+./bch6351 [-h] -i image -p err_prob [-v]
 
-Mainly two BCH encoder and decoder using PGZ error location for the bch4836c program
-and using the Berlekamp-Masset algorithm in Berlekamp-Masseyc program
-This folder also contains a very basic makefile and the source files are stored in source folder.
-
-
-## *bch_in_Cpp file*
-This is the main file of this whole project.
-
-It contains 4 programs that take inspiration from two earlier mentioned programs
-but are written in C++ and are using Object-oriented programming ideas, multithreading 
-and many other more clearly written functions.
-
+Options:
+  -i file_name        Choose one image from images folder, example: images/image2.bmp.
+  -p err_prob         Give probability between (10 and 10000000) that a 1 in err_prob error will occur in
+                           the codeword during a simulated transmission through a noisy medium, example: 1000.
+Optional arguments:
+  -h    Show this help message.
+  -v    Enable verbose_flag encoding and decoding logs which will print out the whole process to the
+           terminal, is disabled by default. WARNING! This option causes the threads to run sequentially instead
+           of in parallel which combined with printing operations to console causes a severe performance degradation.
+</pre>
