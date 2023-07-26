@@ -1,4 +1,4 @@
-#include "bch6351.hpp"
+#include "bch_simulator.hpp"
 #include "bch_logger.hpp"
 #include "bch_utils.hpp"
 #include "bch_math.hpp"
@@ -20,7 +20,7 @@ static globalCounters counters{};
 
 template<class bch_class>
 void populateVectorOfMessagePolynomials(
-		const unsigned char* buffer, 
+		const char* buffer, 
 		const threadZones& zones,
 		std::vector<std::bitset<bch_class::k_>>& vector_of_message_polynomials)
 {	
@@ -136,7 +136,7 @@ status decodeBch(
 {
 	/*
 	 Simon Rockliff's implementation of Berlekamp's algorithm.
-	 Assume we have received bits in Received_Codeword[i], i=0..(bch_class::n_-1).
+	 Assume we have received bits in polynomials.received.codeword[i], i=0..(bch_class::n_-1).
 	
 	 Compute the 2*bch_class::t_ syndromes by substituting alpha^i into rec(X) and
 	 evaluating, storing the syndromes in syndromes[i], i=1..2t (leave syndromes[0] zero) .
@@ -382,7 +382,7 @@ void beginMainProcess(
 }
 
 template<class bch_class>
-void populateUnsignedCharVectors(
+void populateCharVectors(
 		const std::vector<bchType>& objs,
 		const threadZones& zones)
 {	
@@ -514,12 +514,12 @@ int main(
 
 	const int FILE_BYTE_SIZE = sb.st_size;
 	
-	unsigned char* buffer = (unsigned char*) mmap(
-		NULL, 
-		FILE_BYTE_SIZE, 
-		PROT_READ, MAP_PRIVATE, 
-		fd, 
-		0);
+	char* buffer = static_cast<char*>(mmap(
+										NULL, 
+										FILE_BYTE_SIZE, 
+										PROT_READ, MAP_PRIVATE, 
+										fd, 
+										0));
 
 	std::string file_suffix = bchFirstInit();
 
@@ -673,7 +673,7 @@ int main(
 
 		std::visit([&](const auto& obj) -> void {
 			using current_class = CVBC<decltype(obj.get())>;
-			threads.push_back(std::thread(populateUnsignedCharVectors<current_class>,  std::ref(bch::BCH_objects), zones));
+			threads.push_back(std::thread(populateCharVectors<current_class>,  std::ref(bch::BCH_objects), zones));
 		}, bch::BCH_objects[0]);
 
 	}
@@ -690,34 +690,14 @@ int main(
 	std::cout << std::to_string(duration.count()).substr(0, std::to_string(duration.count()).length()-3) << " seconds" << std::endl;
 
 	// write bytes to new files and get diff
-	for (int i = 0; i < RESERVED_BYTES; i++) {
-		image_with_errors << buffer[i];
-		image_fixed << buffer[i];
-	}
+	image_with_errors.write(buffer, RESERVED_BYTES);
+	image_with_errors.write(bch::received_charstream.data() + static_cast<int>(RESERVED_BYTES), bch::received_charstream.size());
+	
+	image_fixed.write(buffer, RESERVED_BYTES);
+	image_fixed.write(bch::decoded_charstream.data() + static_cast<int>(RESERVED_BYTES), bch::decoded_charstream.size());
 
-	for (ssize_t i = RESERVED_BYTES; i < FILE_BYTE_SIZE; i++) {
-		image_with_errors << bch::received_charstream[i];
-		image_fixed << bch::decoded_charstream[i];
-	}
-
-	// std::cout<< bch::received_charstream.size() << " " << bch::decoded_charstream.size() << std::endl;
-	// size_t meh_diff = 0;
-	// for (unsigned int i = 0; i < bch::received_charstream.size(); i++){
-	// 	meh_diff += (bch::received_charstream[i] != bch::decoded_charstream[i]);
-	// }
-	// std::cout << "meh_diff = " << meh_diff << std::endl;
-
-	// size_t diff = 0;
-	// for (unsigned int i=0; i < Bch4830::vector_of_message_polynomials.size(); i++) {
-	// 	std::visit([&](const auto& obj) {
-	// 		using current_class = CVBC<decltype(obj.get())>;
-	// 		diff += (current_class::vector_of_message_polynomials[i] ^ obj->codeword_polynomials_.encoded.data).count();
-	// 	}, bch::BCH_objects[i]);
-	// }
-	// std::cout << "diff = " << diff << std::endl;
 
 	size_t difference_count = 0;
-	// TODO: maybe ignore first HEADER_BYTES so that it is a fair comparison
 	for (int i = 0; i < NUMBER_OF_MESSAGE_POLYNOMIALS; i++) {
 		std::visit([&](const auto& obj){
 			using current_class = CVBC<decltype(obj.get())>;

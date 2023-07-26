@@ -31,7 +31,7 @@ void readPrimitivePolynomial(
 		mathHelper<bch_class::n_>* bch_math)
 {
 	bch_math->primitive_polynomial_int = bch_math->primitive_polynomial_bitset.to_ulong();
-	std::cout << "Primitive polynomial:" << std::endl << "primitive_polynomial_bitset(x) = ";
+	std::cout << "Primitive polynomial:" << std::endl << "p(x) = ";
 	verbosePolynomial(bch_math->primitive_polynomial_bitset);
 }
 

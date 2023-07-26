@@ -21,7 +21,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#define RESERVED_BYTES 54
+#define RESERVED_BYTES 71
 
 template <size_t N, size_t K>
 struct polynomialData{
@@ -96,8 +96,8 @@ using bchType = std::variant<std::unique_ptr<Bch6351>, std::unique_ptr<Bch6345>,
 namespace bch {
     // the big dawg
     std::vector <bchType> BCH_objects;
-    std::vector <unsigned char> decoded_charstream;
-    std::vector <unsigned char> received_charstream;
+    std::vector <char> decoded_charstream;
+    std::vector <char> received_charstream;
 };
 
 #endif /* BCH_SIMULATOR_HPP */

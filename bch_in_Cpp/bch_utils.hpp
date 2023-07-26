@@ -54,8 +54,8 @@ namespace bch {
 }
 
 // TODO:  stylistic:
-const std::string LINE(50/2 - 4, '*');
-const std::string DASH_LINE(50/2, '-');
+const std::string LINE(64/2 - 4, '*');
+const std::string DASH_LINE(64/2, '-');
 
 template <size_t N>
 int MSB(

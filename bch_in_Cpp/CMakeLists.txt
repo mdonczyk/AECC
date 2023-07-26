@@ -8,25 +8,10 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ..)
 
-set(BCH6351_SOURCE
-     bch6351.cpp
+set(BCH_SOURCE
+     bch_simulator.cpp
      bch_utils.cpp
      bch_math.cpp
      bch_logger.hpp)
 
-# set(BCH6345_SOURCE
-#     bch6345.cpp
-#     bch_logger.hpp)
-
-# set(BCH4836_SOURCE
-#     bch4836.cpp
-#     bch_logger.hpp)
-
- set(BCH4830_SOURCE
-     bch4830.cpp
-     bch_logger.hpp)
-
-add_executable(bch6351 ${BCH6351_SOURCE})
-# add_executable(bch6345 ${BCH6345_SOURCE})
-# add_executable(bch4836 ${BCH4836_SOURCE})
-add_executable(bch4830 ${BCH4830_SOURCE})
+add_executable(bch_simulator ${BCH_SOURCE})
