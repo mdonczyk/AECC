@@ -24,23 +24,17 @@ void populateVectorOfMessagePolynomials(
 		const threadZones& zones,
 		std::vector<std::bitset<bch_class::k_>>& vector_of_message_polynomials)
 {	
-	std::bitset<bch_class::k_> temp_bitset;
 	int data_bitset_iterator = zones.MPTG_end;
 	int bit_pos = zones.bit_pos;
 	for (int i = zones.MBTG_beginning; i < zones.MBTG_end; i++) {
 		for (int j = 0; j < 8; ++j) {
-			temp_bitset[bit_pos] = buffer[i] & (1 << j);
+			vector_of_message_polynomials[data_bitset_iterator][bit_pos] = buffer[i] & (1 << j);
 			bit_pos++;
 			if (bit_pos == bch_class::k_) {
-				vector_of_message_polynomials[data_bitset_iterator] ^= temp_bitset;
 				data_bitset_iterator++;
-				temp_bitset.reset();
 				bit_pos = 0;
 			}
 		}
-	}
-	if (bit_pos != 0) {
-		vector_of_message_polynomials[data_bitset_iterator] ^= temp_bitset;
 	}
 }
 
@@ -775,7 +769,10 @@ int main(
 
 	munmap(buffer, FILE_BYTE_SIZE);
 	close(fd);
-
+	std::visit([](const auto& obj){
+			using current_class = CVBC<decltype(obj.get())>;
+			delete bch::bch_math<current_class::k_>;
+		}, bch::BCH_objects[0]);
 	image_with_errors.close();
 	image_fixed.close();
 	BCH_logs.close();
