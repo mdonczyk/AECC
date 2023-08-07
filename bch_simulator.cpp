@@ -24,9 +24,9 @@ void populateVectorOfMessagePolynomials(
 		const threadZones& zones,
 		std::vector<std::bitset<bch_class::k_>>& vector_of_message_polynomials)
 {	
-	int data_bitset_iterator = zones.MPTG_end;
-	int bit_pos = zones.bit_pos;
-	for (int i = zones.MBTG_beginning; i < zones.MBTG_end; i++) {
+	size_t data_bitset_iterator = zones.MPTG_end;
+	size_t bit_pos = zones.bit_pos;
+	for (size_t i = zones.MBTG_beginning; i < zones.MBTG_end; i++) {
 		for (int j = 0; j < 8; ++j) {
 			vector_of_message_polynomials[data_bitset_iterator][bit_pos] = buffer[i] & (1 << j);
 			bit_pos++;
@@ -57,10 +57,11 @@ std::vector <int> calculateSyndromes(
 		const mathHelper<bch_class::n_>* bch_math, 
 		bool &errors_in_codeword)
 {
+	// for (auto& syndrome : syndromes | std::ranges::views::drop(1)) {
 	std::vector <int> syndromes(2*bch_class::t_+1);
-	for (int i = 1; i <= 2*bch_class::t_; i++) {
+	for (size_t i = 1; i <= 2*bch_class::t_; i++) {
 		syndromes[i] = 0;
-		for (int j = 0; j < bch_class::n_; j++) {
+		for (size_t j = 0; j < bch_class::n_; j++) {
 			if (polynomials.received.codeword[j] != 0) {
 				syndromes[i] ^= bch_math->alpha_to[(i*j) % GFB];
 			}
@@ -73,7 +74,7 @@ std::vector <int> calculateSyndromes(
 	}
 
 	bch_logger.log("syndromes= ( ");
-		for (int i = 1; i <= 2*bch_class::t_; i++) {
+		for (std::vector<int>::size_type i = 1; i <= 2*bch_class::t_; i++) {
 			bch_logger.log(syndromes[i], " ");
 		}
 	bch_logger.log(")\n");
@@ -89,7 +90,7 @@ void introduceErrors(
 	std::random_device rd;
 	std::mt19937 gen (rd());
 	std::uniform_int_distribution<> d (0, bch::error_probability);
-	for (int i = 0; i < bch_class::n_; i++) {
+	for (size_t i = 0; i < bch_class::n_; i++) {
 		int randnum = d(gen);
 		if (randnum == 0) {
 			counters.introduced_errors_count ++;
@@ -237,14 +238,16 @@ status decodeBch(
 			// form (u+1)th discrepancy
 			if (u < 2*bch_class::t_) {
 			// no discrepancy computed on last iteration
-				if (syndromes[u + 1] != -1) {
-					d[u + 1] = bch_math->alpha_to[syndromes[u + 1]];
+				using index_t = std::vector<int>::size_type;
+				index_t u_t = static_cast<index_t>(u);
+				if (syndromes[u_t + 1] != -1) {
+					d[u + 1] = bch_math->alpha_to[syndromes[u_t + 1]];
 				} else {
 				d[u + 1] = 0;
 				}
 				for (int i = 1; i <= l[u + 1]; i++) {
-					if ((syndromes[u + 1 - i] != -1) && (elp[u + 1][i] != 0)) {
-						d[u + 1] ^= bch_math->alpha_to[(syndromes[u + 1 - i] + 
+					if ((syndromes[u_t + 1 - static_cast<index_t>(i)] != -1) && (elp[u + 1][i] != 0)) {
+						d[u + 1] ^= bch_math->alpha_to[(syndromes[u_t + 1 - static_cast<index_t>(i)] + 
 							bch_math->index_of[elp[u + 1][i]]) % GFB];
 					}
 				}
@@ -278,8 +281,8 @@ status decodeBch(
 			bch_logger.log("\n");
 			if (error_locations.size() == static_cast<unsigned>(l[u])) {
 				for (auto const &error_location : error_locations) {
-					auto err_loc = (bch_class::n_-1-error_location + bch_class::n_) % bch_class::n_;
-					if (err_loc >= 0 && err_loc < bch_class::n_) {
+					size_t err_loc = static_cast<size_t>((bch_class::n_-1 - error_location + bch_class::n_) % bch_class::n_);
+					if (err_loc < bch_class::n_) {
 						polynomials.decoded.codeword.flip(err_loc);
 					} else {
 						bch_logger.log("\nIncomplete decoding: errors detected (err_loc out of bound: err_loc = ", err_loc, ")\n");
@@ -335,7 +338,7 @@ void beginMainProcess(
 		const threadZones& zones)
 {	
 	if (bch_logger.enable_logging_) { bch::Mutex.lock(); }
-	for (int i = zones.MPTG_beginning; i < zones.MPTG_end; i++) {
+	for (size_t i = zones.MPTG_beginning; i < zones.MPTG_end; i++) {
 		bch_logger.log(LINE, " Worker ", thread_id," START ", LINE);
 
 		switch (bch::code_type) {
@@ -380,8 +383,8 @@ void populateCharVectors(
 		const std::vector<bchType>& objs,
 		const threadZones& zones)
 {	
-	int data_bitset_iterator = zones.MPTG_end;
-	int bit_pos = zones.bit_pos;
+	size_t data_bitset_iterator = zones.MPTG_end;
+	size_t bit_pos = zones.bit_pos;
 
 	auto temp_poly = std::visit(
 		[=](auto& obj) {
@@ -389,10 +392,10 @@ void populateCharVectors(
 		}, objs[data_bitset_iterator]);
 	auto polynomials = std::any_cast<polynomialData<bch_class::n_, bch_class::k_>>(temp_poly);
 
-	for (int i = zones.MBTG_beginning; i < zones.MBTG_end; i++) {
+	for (size_t i = zones.MBTG_beginning; i < zones.MBTG_end; i++) {
 		for (int j = 0; j < 8; j++) {
-			bch::received_charstream[i] ^= polynomials.received.data[bit_pos] << j;
-			bch::decoded_charstream[i] ^= polynomials.decoded.data[bit_pos] << j;
+			bch::received_charstream[i] ^= static_cast<char>(polynomials.received.data[bit_pos] << j);
+			bch::decoded_charstream[i] ^= static_cast<char>(polynomials.decoded.data[bit_pos] << j);
 			bit_pos++;
 			if (bit_pos == bch_class::k_) {
 				data_bitset_iterator++;
@@ -505,8 +508,7 @@ int main(
 		std::cout << "Failed to get file size\n";
 		return 1;
 	}
-
-	const int FILE_BYTE_SIZE = sb.st_size;
+	const size_t FILE_BYTE_SIZE = static_cast<unsigned>(sb.st_size);
 	
 	char* buffer = static_cast<char*>(mmap(
 										NULL, 
@@ -525,42 +527,41 @@ int main(
 
 	std::ofstream image_with_errors (image_with_errors_path.c_str(), std::ios::out | std::ios::app | std::ios::binary);
 	std::ofstream image_fixed (image_fixed_path.c_str(), std::ios::out | std::ios::app | std::ios::binary);
-
 	// resize vectors:
-	const ssize_t NUMBER_OF_MESSAGE_POLYNOMIALS = std::visit([=](const auto& obj){
+	const size_t NUMBER_OF_MESSAGE_POLYNOMIALS = std::visit([=](const auto& obj){
 		using current_class = CVBC<decltype(obj.get())>;
 
-		// do a check to see if there are any std::left over bites and if there are we need to add another message polynomial
-		ssize_t NUMBER_OF_MESSAGE_POLYNOMIALS = ((FILE_BYTE_SIZE*8)%current_class::k_)? 
+		// do a check to see if there are any std::left over bites and if 
+		// there are we need to add another message polynomial
+		size_t NOMP = ((FILE_BYTE_SIZE*8)%current_class::k_)? 
 					(FILE_BYTE_SIZE*8)/current_class::k_ + 1 :
 					(FILE_BYTE_SIZE*8)/current_class::k_;
 
-		current_class::vector_of_message_polynomials.resize(NUMBER_OF_MESSAGE_POLYNOMIALS);
+		current_class::vector_of_message_polynomials.resize(NOMP);
 
-		return NUMBER_OF_MESSAGE_POLYNOMIALS;
+		return NOMP;
 	}, bch::BCH_objects[0]);
 	bch::BCH_objects.resize(NUMBER_OF_MESSAGE_POLYNOMIALS);
 	bch::decoded_charstream.resize(FILE_BYTE_SIZE);
-	bch::received_charstream.resize(FILE_BYTE_SIZE);
-
+	bch::received_charstream.resize(FILE_BYTE_SIZE);	
 	std::vector<std::thread> threads;
-	const int NUM_THREADS = std::thread::hardware_concurrency();
+	const size_t NUM_THREADS = std::thread::hardware_concurrency();
 	std::cout << "number of detected threads: " << NUM_THREADS << std::endl;
 
 	// MESSAGE_POLYNOMIALS_THREAD_GROUP --> count of group of message polynomials that will be used by a single thread
-	const int MESSAGE_POLYNOMIALS_THREAD_GROUP = (NUMBER_OF_MESSAGE_POLYNOMIALS%NUM_THREADS)? 
+	const size_t MESSAGE_POLYNOMIALS_THREAD_GROUP = (NUMBER_OF_MESSAGE_POLYNOMIALS%NUM_THREADS)? 
 													NUMBER_OF_MESSAGE_POLYNOMIALS/NUM_THREADS :
 													NUMBER_OF_MESSAGE_POLYNOMIALS/NUM_THREADS - 1;
 
 	// MESSAGE_BYTES_THREAD_GROUP --> count of group of message bytes that will be used by a single thread
-	const int MESSAGE_BYTES_THREAD_GROUP = FILE_BYTE_SIZE/NUM_THREADS;
+	const size_t MESSAGE_BYTES_THREAD_GROUP = FILE_BYTE_SIZE/NUM_THREADS;
 
 	std::cout << "Parsing image file..." << std::endl;
 	auto start = std::chrono::high_resolution_clock::now();
 
 	threadZones zones{};
 
-	for (int thread_id = 0; thread_id < NUM_THREADS; thread_id++) {
+	for (size_t thread_id = 0; thread_id < NUM_THREADS; thread_id++) {
 		zones.MBTG_beginning = MESSAGE_BYTES_THREAD_GROUP*thread_id;
 		zones.MBTG_end = MESSAGE_BYTES_THREAD_GROUP*(thread_id + 1);
 
@@ -615,7 +616,7 @@ int main(
 
 	zones = {};
 
-	for (int thread_id = 0; thread_id < NUM_THREADS; thread_id++) {
+	for (size_t thread_id = 0; thread_id < NUM_THREADS; thread_id++) {
 		zones.MPTG_beginning = MESSAGE_POLYNOMIALS_THREAD_GROUP*thread_id;
 		zones.MPTG_end = MESSAGE_POLYNOMIALS_THREAD_GROUP*(thread_id + 1);
 
@@ -646,7 +647,7 @@ int main(
 
 	zones = {};
 
-	for (int thread_id = 0; thread_id < NUM_THREADS; thread_id++) {
+	for (size_t thread_id = 0; thread_id < NUM_THREADS; thread_id++) {
 		zones.MBTG_beginning = MESSAGE_BYTES_THREAD_GROUP*thread_id;
 		zones.MBTG_end = MESSAGE_BYTES_THREAD_GROUP*(thread_id + 1);
 
@@ -685,14 +686,14 @@ int main(
 
 	// write bytes to new files and get diff
 	image_with_errors.write(buffer, RESERVED_BYTES);
-	image_with_errors.write(bch::received_charstream.data() + static_cast<int>(RESERVED_BYTES), bch::received_charstream.size());
+	image_with_errors.write(bch::received_charstream.data() + static_cast<int>(RESERVED_BYTES), static_cast<signed>(bch::received_charstream.size()));
 	
 	image_fixed.write(buffer, RESERVED_BYTES);
-	image_fixed.write(bch::decoded_charstream.data() + static_cast<int>(RESERVED_BYTES), bch::decoded_charstream.size());
+	image_fixed.write(bch::decoded_charstream.data() + static_cast<int>(RESERVED_BYTES), static_cast<signed>(bch::decoded_charstream.size()));
 
 
 	size_t difference_count = 0;
-	for (int i = 0; i < NUMBER_OF_MESSAGE_POLYNOMIALS; i++) {
+	for (size_t i = 0; i < NUMBER_OF_MESSAGE_POLYNOMIALS; i++) {
 		std::visit([&](const auto& obj){
 			using current_class = CVBC<decltype(obj.get())>;
 			difference_count += (current_class::vector_of_message_polynomials[i] ^ 

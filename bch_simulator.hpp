@@ -11,6 +11,7 @@
 #include <functional>
 #include <memory>
 #include <random>
+#include <ranges>
 #include <thread>
 #include <time.h>
 #include <unordered_map>
@@ -25,21 +26,13 @@
 
 template <size_t N, size_t K>
 struct polynomialData{
-    union enc {
+    union polynomial {
         std::bitset<N> codeword;
         std::bitset<K> data;
     };
-    union rec {
-        std::bitset<N> codeword;
-        std::bitset<K> data;
-    };
-    union dec {
-        std::bitset<N> codeword;
-        std::bitset<K> data;
-    };
-    enc  encoded{};
-    rec  received{};
-    dec  decoded{};
+    polynomial encoded{};
+    polynomial received{};
+    polynomial decoded{};
 };
 
 class Bch6351 {

@@ -30,7 +30,7 @@ template <class bch_class>
 void readPrimitivePolynomial(
 		mathHelper<bch_class::n_>* bch_math)
 {
-	bch_math->primitive_polynomial_int = bch_math->primitive_polynomial_bitset.to_ulong();
+	bch_math->primitive_polynomial_int = static_cast<int>(bch_math->primitive_polynomial_bitset.to_ulong());
 	std::cout << "Primitive polynomial:" << std::endl << "p(x) = ";
 	verbosePolynomial(bch_math->primitive_polynomial_bitset);
 }
@@ -40,7 +40,7 @@ void generateGaloisField(
 		mathHelper<bch_class::n_>* bch_math)
 {
 	bch_math->index_of[0] = -1;
-	bch_math->m = MSB(bch_math->primitive_polynomial_bitset);
+	bch_math->m = static_cast<int>(MSB(bch_math->primitive_polynomial_bitset));
 	for (int i = 0; i < GFB; i++) {
 		if (i < bch_math->m) {
 			bch_math->alpha_to[i] = 1 << i;
@@ -74,9 +74,9 @@ void generateGeneratorPolynomial(
 			}
 		std::vector <int> coset;
 		coset.push_back(coset_element);
-		for (int i = 1; i < bch_math->m; i++) {
+		using index_t = std::vector<int>::size_type;
+		for (index_t i = 1; i < static_cast<size_t>(bch_math->m); i++) {
 			coset.push_back((coset[i-1] << 1) % GFB);
-			// TODO: maybe implement if initializer
 			status = unique_elements.emplace(coset[i]);
 			if (!status.second) {
 				break;
@@ -115,11 +115,14 @@ void generateGeneratorPolynomial(
 		product ^= bch_math->primitive_polynomial_int;
 		min_polynomials.push_back(product);
 	}
-	int generator_polynomial = min_polynomials[0];
-	for (uint i=1; i<bch_class::t_; i++) {
-		generator_polynomial = multiplyIntPolynomials(generator_polynomial, min_polynomials[i]);
+	if (min_polynomials.empty()){
+		exit(1);
 	}
-	bch_math->generator_polynomial_bitset = generator_polynomial;
+	int temp_poly = min_polynomials[0];
+	for (size_t i=1; i<bch_class::t_; i++) {
+		temp_poly = multiplyIntPolynomials(temp_poly, min_polynomials[i]);
+	}
+	bch_math->generator_polynomial_bitset = static_cast<unsigned>(temp_poly);
 	reverseBitset(bch_math->generator_polynomial_bitset, bch_class::k_-1);
 	std::cout << "This is a (" << bch_class::n_ << "," << bch_class::k_ << "," << bch_class::t_*2+1 << ") binary bch code" << std::endl;
 	std::cout << "g(x) is " << bch_math->generator_polynomial_bitset.to_string().substr(bch_class::n_ - (bch_class::n_-bch_class::k_+1)) << std::endl;

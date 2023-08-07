@@ -25,25 +25,25 @@ enum codeType {
 
 // global atomic counters:
 struct globalCounters {
-    std::atomic<int> success_count{0};
-    std::atomic<int> failure_count{0};
-    std::atomic<int> introduced_errors_count{0};
-    std::atomic<int> big_errors_count{0};
-    std::atomic<int> uncaught_errors_count{0};
+    std::atomic<size_t> success_count{0};
+    std::atomic<size_t> failure_count{0};
+    std::atomic<size_t> introduced_errors_count{0};
+    std::atomic<size_t> big_errors_count{0};
+    std::atomic<size_t> uncaught_errors_count{0};
 };
 
 struct threadZones {
 	// MESSAGE_BYTES_THREAD_GROUP beginning
-	ssize_t MBTG_beginning;
+	size_t MBTG_beginning;
 	// MESSAGE_BYTES_THREAD_GROUP end
-	ssize_t MBTG_end;
+	size_t MBTG_end;
 	// MESSAGE_POLYNOMIALS_THREAD_GROUP beginning
-	ssize_t MPTG_beginning;
+	size_t MPTG_beginning;
 	// MESSAGE_POLYNOMIALS_THREAD_GROUP end
-	ssize_t MPTG_end;
-	int bit_pos;
-	int old_bit_pos;
-	int overlaping_message_polynomial;
+	size_t MPTG_end;
+	size_t bit_pos;
+	size_t old_bit_pos;
+	size_t overlaping_message_polynomial;
 };
 
 namespace bch {
@@ -61,7 +61,7 @@ template <size_t N>
 int MSB(
 		const std::bitset <N> &Polynomial)
 {
-	return (N + (GFB-N) - std::countl_zero(Polynomial.to_ullong()));
+	return (N + (GFB-N) - static_cast<size_t>(std::countl_zero(Polynomial.to_ullong())));
 }
 
 template <size_t N>
@@ -69,29 +69,26 @@ void verbosePolynomial(
 		const std::bitset <N> &Polynomial)
 {
 	int power = MSB(Polynomial);
-	for (int i=power; i>=0; i--) {
-		if (Polynomial[i]) {
+	for (int i = power; i > 0; i--) {
+		if (Polynomial[static_cast<size_t>(i)]) {
 			if (i != power) {
 				std::cout << " + " ;
 			}
-			if (i!=0) {
-				if (i == 1) {
-					std::cout << "x";
-				} else {
+			if (i != 1) {
 				std::cout << "x^" << i;
-				}
 			} else {
-				std::cout << "1";
+				std::cout << "x";
 			}
 		}
 	}
+	std::cout << " + 1";
 	std::cout << std::endl;
 }
 
 template<size_t N>
 void reverseBitset(
 		std::bitset <N> &Polynomial, 
-		int Shift)
+		size_t Shift)
 {
     for(size_t i = 0; i < N/2; ++i) {
     	bool temp_bit = Polynomial[i];
@@ -104,7 +101,7 @@ void reverseBitset(
 template<size_t N>
 std::bitset <N> tempReverseBitset(
 		std::bitset <N> Polynomial, 
-		int Shift)
+		size_t Shift)
 {
     for(size_t i = 0; i < N/2; ++i) {
     	bool temp_bit = Polynomial[i];
@@ -121,7 +118,7 @@ std::pair<std::bitset <N>, std::bitset <N>> divideBitsetPolynomials(
 {
 	std::bitset <N> quotient, remainder = dividend;
  	while (MSB(remainder) >= MSB(divisor)) {
-		int shift = MSB(remainder) - MSB(divisor);
+		size_t shift = static_cast<size_t>(MSB(remainder) - MSB(divisor));
 		remainder ^= divisor << shift;
 		quotient.flip(shift); 
 	}
