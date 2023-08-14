@@ -686,10 +686,10 @@ int main(
 
 	// write bytes to new files and get diff
 	image_with_errors.write(buffer, RESERVED_BYTES);
-	image_with_errors.write(bch::received_charstream.data() + static_cast<int>(RESERVED_BYTES), static_cast<signed>(bch::received_charstream.size()));
+	image_with_errors.write(bch::received_charstream.data() + RESERVED_BYTES, static_cast<signed>(bch::received_charstream.size()) - RESERVED_BYTES);
 	
 	image_fixed.write(buffer, RESERVED_BYTES);
-	image_fixed.write(bch::decoded_charstream.data() + static_cast<int>(RESERVED_BYTES), static_cast<signed>(bch::decoded_charstream.size()));
+	image_fixed.write(bch::decoded_charstream.data() + RESERVED_BYTES, static_cast<signed>(bch::decoded_charstream.size()) - RESERVED_BYTES);
 
 
 	size_t difference_count = 0;
