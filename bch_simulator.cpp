@@ -42,7 +42,7 @@ void populateVectorOfMessagePolynomials(
 template<class bch_class>
 void encodeBch(
 		polynomialData<bch_class::n_, bch_class::k_>& polynomials, 
-		const mathHelper<bch_class::n_>* bch_math)
+		const std::unique_ptr<mathHelper<bch_class::n_>>& bch_math)
 {	
 	polynomials.encoded.codeword <<= (bch_class::n_-bch_class::k_);
 	std::bitset<bch_class::n_> rb = divideBitsetPolynomials(polynomials.encoded.codeword, bch_math->generator_polynomial_bitset).first;
@@ -54,7 +54,7 @@ void encodeBch(
 template<class bch_class>
 std::vector <int> calculateSyndromes(
 		const polynomialData<bch_class::n_, bch_class::k_>& polynomials, 
-		const mathHelper<bch_class::n_>* bch_math, 
+		const std::unique_ptr<mathHelper<bch_class::n_>>& bch_math, 
 		bool &errors_in_codeword)
 {
 	// for (auto& syndrome : syndromes | std::ranges::views::drop(1)) {
@@ -127,7 +127,7 @@ void compareAndPrintCodewords(
 template<class bch_class>
 status decodeBch(
 		polynomialData<bch_class::n_, bch_class::k_>& polynomials,
-		const mathHelper<bch_class::n_>* bch_math) 
+		const std::unique_ptr<mathHelper<bch_class::n_>>& bch_math) 
 {
 	/*
 	 Simon Rockliff's implementation of Berlekamp's algorithm.
@@ -434,7 +434,7 @@ std::string bchFirstInit()
 template<class bch_class>
 void initializeBchMathStruct() 
 {	
-	bch::bch_math<bch_class::n_> = new mathHelper<bch_class::n_>;
+	bch::bch_math<bch_class::n_> = std::make_unique<mathHelper<bch_class::n_>>();
 	readPrimitivePolynomial<bch_class>(bch::bch_math<bch_class::n_>);
 	generateGaloisField<bch_class>(bch::bch_math<bch_class::n_>); 
 	generateGeneratorPolynomial<bch_class>(bch::bch_math<bch_class::n_>);
@@ -770,10 +770,6 @@ int main(
 
 	munmap(buffer, FILE_BYTE_SIZE);
 	close(fd);
-	std::visit([](const auto& obj){
-			using current_class = CVBC<decltype(obj.get())>;
-			delete bch::bch_math<current_class::k_>;
-		}, bch::BCH_objects[0]);
 	image_with_errors.close();
 	image_fixed.close();
 	BCH_logs.close();

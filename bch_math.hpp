@@ -2,6 +2,7 @@
 #define BCH_MATH_HPP
 
 #include <bitset>
+#include <memory>
 #include <vector>
 #include <iostream>
 #include <set>
@@ -23,12 +24,12 @@ struct mathHelper {
 
 namespace bch {
     template <size_t N>
-    mathHelper<N>* bch_math;
+    std::unique_ptr<mathHelper<N>> bch_math;
 }
 
 template <class bch_class>
 void readPrimitivePolynomial(
-		mathHelper<bch_class::n_>* bch_math)
+		std::unique_ptr<mathHelper<bch_class::n_>>& bch_math)
 {
 	bch_math->primitive_polynomial_int = static_cast<int>(bch_math->primitive_polynomial_bitset.to_ulong());
 	std::cout << "Primitive polynomial:" << std::endl << "p(x) = ";
@@ -37,7 +38,7 @@ void readPrimitivePolynomial(
 
 template<class bch_class>
 void generateGaloisField(
-		mathHelper<bch_class::n_>* bch_math)
+		std::unique_ptr<mathHelper<bch_class::n_>>& bch_math)
 {
 	bch_math->index_of[0] = -1;
 	bch_math->m = static_cast<int>(MSB(bch_math->primitive_polynomial_bitset));
@@ -59,7 +60,7 @@ void generateGaloisField(
 
 template <class bch_class>
 void generateGeneratorPolynomial(
-		mathHelper<bch_class::n_>* bch_math)
+		std::unique_ptr<mathHelper<bch_class::n_>>& bch_math)
 {
 	std::vector <std::vector <int>> cycle_cosets;
 	std::set <int> unique_elements;
@@ -75,7 +76,7 @@ void generateGeneratorPolynomial(
 		std::vector <int> coset;
 		coset.push_back(coset_element);
 		using index_t = std::vector<int>::size_type;
-		for (index_t i = 1; i < static_cast<size_t>(bch_math->m); i++) {
+		for (index_t i = 1; i < static_cast<size_t>(bch_math->m); ++i) {
 			coset.push_back((coset[i-1] << 1) % GFB);
 			status = unique_elements.emplace(coset[i]);
 			if (!status.second) {

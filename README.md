@@ -6,7 +6,14 @@ BCH encoder and decoder written using modern C++17 features, multithreading, Obj
 This program simulates a bch encoded transmission through a noisy channel. It divides the given image into message polynomials which are then encodedand the errors are simulated with a given probability. They are afterwards decoded.\
 After the whole process there is a table with the informations of the process andif you wish you can take a look at three pictures: the original image, image with errorsand the image with errors fixed. Currently there are 4 BCH codes supported.
 
+<pre>
+How to build:
 
+  mkdir build
+  cd build
+  cmake ..
+  make
+</pre>
 
 <pre>
 Usage:
