@@ -17,7 +17,7 @@ How to build:
 
 <pre>
 Usage:
-./bch_simulator [-h] -i image -p err_prob -c code_type [-v]
+  ./bch_simulator [-h] -i image -p err_prob -c code_type [-v]
 
 Options:
   -i image      Choose one image from images folder, example: images/image2.bmp.
@@ -34,7 +34,11 @@ Optional arguments:
   -v    Enable bch_logger encoding and decoding logs which will print out the whole process to the
           terminal, is disabled by default. WARNING! This option causes the threads to run sequentially instead
           of in parallel which combined with printing operations to console causes a severe performance degradation.
+
+Example:
+  ./bch_simulator -i images/image2.bmp -p 100 -c 3
 </pre>
+
 Example program output:
 
 _./bch_simulator -i images/lenna.bmp -p 100 -c 3_\
