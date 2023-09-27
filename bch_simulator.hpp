@@ -17,10 +17,12 @@
 #include <unordered_map>
 #include <variant>
 #include <vector>
-#include <fcntl.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
-#include <unistd.h>
+
+#include "bch_utils.hpp"
+#include "bch_math.hpp"
+#include "bch_logger.hpp"
 
 #define RESERVED_BYTES 71
 
@@ -34,6 +36,45 @@ struct polynomialData{
     polynomial received{};
     polynomial decoded{};
 };
+
+std::string bchFirstInit();
+
+size_t resizeMainVectors(
+        const size_t file_byte_size);
+
+void divideImageBytesToBitsets(
+		const char* buffer,
+		const size_t message_bytes_thread_group,
+		const size_t message_polynomials_thread_group,
+		const size_t num_threads,
+		const size_t file_byte_size,
+		std::vector<std::thread>& threads);
+
+void mathStructInit();
+
+void startMainProcess(
+		const size_t number_of_message_polynomials,
+		const size_t message_polynomials_thread_group,
+		const size_t num_threads,
+		std::vector<std::thread>& threads);
+
+void divideImageBitsetsToBytes(
+		const size_t message_bytes_thread_group,
+		const size_t message_polynomials_thread_group,
+		const size_t num_threads,
+		const size_t file_byte_size,
+		std::vector<std::thread>& threads);
+
+size_t getMainDifferenceCount(
+		const size_t number_of_message_polynomials);
+
+globalCounters& getFullCounters();
+
+void finalLogsAndCleanup(
+		const size_t number_of_message_polynomials,
+		std::string& image_with_errors_path,
+		std::string& image_fixed_path,
+		std::chrono::duration<float> main_duration);
 
 class Bch6351 {
     public:
@@ -88,9 +129,9 @@ using bchType = std::variant<std::unique_ptr<Bch6351>, std::unique_ptr<Bch6345>,
 
 namespace bch {
     // the big dawg
-    std::vector <bchType> BCH_objects;
-    std::vector <char> decoded_charstream;
-    std::vector <char> received_charstream;
+    inline std::vector <bchType> BCH_objects;
+    inline std::vector <char> decoded_charstream;
+    inline std::vector <char> received_charstream;
 };
 
 #endif /* BCH_SIMULATOR_HPP */

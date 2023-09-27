@@ -1,13 +1,17 @@
 #ifndef BCH_UTILS_HPP
 #define BCH_UTILS_HPP
 
-#include <iostream>
+#include <atomic>
 #include <bit>
 #include <bitset>
-#include <atomic>
-#include <unistd.h>
+#include <iomanip>
+#include <iostream>
 #include <sys/stat.h>
 #include <mutex>
+#include <memory>
+#include <fcntl.h>
+
+#include "bch_logger.hpp"
 
 #define GFB 63 // Galois Field Barrier = 2**m - 1 = 2**6 - 1
 
@@ -33,13 +37,13 @@ struct globalCounters {
 };
 
 struct threadZones {
-	// MESSAGE_BYTES_THREAD_GROUP beginning
+	// message_bytes_thread_group beginning
 	size_t MBTG_beginning;
-	// MESSAGE_BYTES_THREAD_GROUP end
+	// message_bytes_thread_group end
 	size_t MBTG_end;
-	// MESSAGE_POLYNOMIALS_THREAD_GROUP beginning
+	// message_polynomials_thread_group beginning
 	size_t MPTG_beginning;
-	// MESSAGE_POLYNOMIALS_THREAD_GROUP end
+	// message_polynomials_thread_group end
 	size_t MPTG_end;
 	size_t bit_pos;
 	size_t old_bit_pos;
@@ -56,6 +60,13 @@ namespace bch {
 // TODO:  stylistic:
 const std::string LINE(64/2 - 4, '*');
 const std::string DASH_LINE(64/2, '-');
+
+void printHelpMessage(
+		const char *file_name);
+
+int parse_arguments(
+		const int argc,
+		char* argv[]);
 
 template <size_t N>
 int MSB(
@@ -124,7 +135,5 @@ std::pair<std::bitset <N>, std::bitset <N>> divideBitsetPolynomials(
 	}
 	return {remainder, quotient};
 }
-
-void printHelpMessage(const char *file_name);
 
 #endif /* BCH_UTILS_HPP */
